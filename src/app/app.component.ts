@@ -15,10 +15,12 @@ import * as FusionCharts from 'fusioncharts';
 export class AppComponent implements OnInit {
 
   data = [];
+  results= [];
   dataSource: any;
   type: string;
   width: string;
   height: string;
+  inTrade = false;
 
   constructor(private http: HttpClient) {
     this.type = 'timeseries';
@@ -91,31 +93,16 @@ export class AppComponent implements OnInit {
       },
     };
 
-    this.fetchData();
+    //this.fetchData();
   }
 
-  ngOnInit() {
-    this.http
-      .get('assets/EURUSD1440_short.csv', { responseType: 'text' })
-      .subscribe(
-        (data) => {
-          let csvToRowArray = data.split('\n');
-          for (let index = 1; index < csvToRowArray.length - 1; index++) {
-            const element = csvToRowArray[index].split('\t');
-            const date = element[0].split(" ")[0].toString();
-            this.data.push(date, element[1], element[2], element[3], element[4], 0);
-            //this.data.push("2014-07-15","96.800003","96.849998","95.029999","95.32","45477900");
-          }
-          console.table(JSON.stringify(this.data));
-        },
-        (error) => {
-          console.log(error);
-        }
-      );
+
+  async ngOnInit() {
+    await this.getDataFromFile();
+    this.setStrategy();
   }
 
-  // In this method we will create our DataStore and using that we will create a custom DataTable which takes two
-  // parameters, one is data another is schema.
+
   fetchData() {
     var jsonify = (res) => res.json();
     let  dataFetch = fetch(
@@ -130,20 +117,127 @@ export class AppComponent implements OnInit {
     Promise.all([dataFetch, schemaFetch]).then((res) => {
       const [data, schema] = res;
       const fusionDataStore = new FusionCharts.DataStore();
-
-      //console.log("original data : " +data)
       console.log("my data : " +this.data)
-
-     
-
-
-      const fusionTable = fusionDataStore.createDataTable(this.data, schema);
-      // Afet that we simply mutated our timeseries datasource by attaching the above
-      // DataTable into its data property.
-      
+      const fusionTable = fusionDataStore.createDataTable(this.data, schema);      
       this.dataSource.data = fusionTable;
     });
   }
+
+
+  getDataFromFile() {
+    return new Promise<any>((resolve, reject) => {
+      this.http.get('assets/EURUSD1440_short.csv', { responseType: 'text' }).subscribe(
+        (data) => {
+          let csvToRowArray = data.split('\n');
+          for (let index = 1; index < csvToRowArray.length - 1; index++) {
+            const element = csvToRowArray[index].split('\t');
+            const date = element[0].split(" ")[0];
+
+            this.data.push({
+                date: date, 
+                open: parseFloat(element[1]),
+                high: parseFloat(element[2]),
+                low: parseFloat(element[3]),
+                close: parseFloat(element[4]),
+                volume: parseFloat(element[5])
+              });
+          }
+          //console.table(this.data);
+          //console.log(this.data);
+          resolve();
+        },
+        (error) => {
+          console.log(error);
+          reject(error);
+        }
+      );
+    });  
+  }
+
+
+  setStrategy() {
+    console.log("data length", this.data.length);
+    
+    for (let i = 10; i < this.data.length; i++){
+      //console.log("data", this.data[i]);
+      let buyPrice: any;
+      let stopPrice: any;
+      let profitPrice: any;
+      
+      if (this.inTrade) {
+        if (this.low(i, 0) < stopPrice) {
+          this.inTrade = false;
+          this.results.push(-1);
+          console.log("SL", this.data[i]);
+        }
+
+        if (this.high(i, 0) > profitPrice) {
+          this.inTrade = false;
+          this.results.push(2);
+          console.log("TP", this.data[i]);
+        }
+      }
+
+      if (this.close(i, 0) > this.open(i, 0) && this.close(i, 1) > this.open(i, 1)) {
+        if (!this.inTrade) {
+          this.inTrade = true;
+          buyPrice = this.close(i, 0);
+          stopPrice = this.low(i, 0);
+          profitPrice = buyPrice + (buyPrice - stopPrice) * 2;
+          console.log("Buy", this.data[i]);
+          console.log("buyPrice", buyPrice);
+          console.log("stopPrice", stopPrice);
+          console.log("profitPrice", profitPrice);
+        }
+        
+
+        //this.results.push({        })
+      }
+      
+    }
+  }
+
+  enterLong() {
+    
+  }
+
+
+
+  open(index: number, lookback: number) {
+    return this.data[index - lookback].open;
+  }
+
+  close(index: number, lookback: number) {
+    return this.data[index - lookback].close;
+  }
+
+  high(index: number, lookback: number) {
+    return this.data[index - lookback].high;
+  }
+
+  low(index: number, lookback: number) {
+    return this.data[index - lookback].low;
+  }
+
+  date(index: number, lookback: number) {
+    return this.data[index - lookback].date;
+  }
+
+  volume(index: number, lookback: number) {
+    return this.data[index - lookback].volume;
+  }
+
+
+    /**
+     * Arrondi un nombre avec une certaine précision.
+     * @param value 
+     * @param precision 
+     */
+    round(value: number, precision: number) {
+      const multiplier = Math.pow(10, precision || 0);
+      return Math.round(value * multiplier) / multiplier;
+  }
+
 }
 
 
