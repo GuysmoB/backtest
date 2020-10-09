@@ -2,10 +2,35 @@ import { HttpClient } from '@angular/common/http';
 import { Component, OnInit } from '@angular/core';
 import * as FusionCharts from 'fusioncharts';
 
+//https://www.fusioncharts.com/dev/fusiontime/fusiontime-attributes
 
-//https://github.com/apexcharts/ng-apexcharts
-//https://apexcharts.com/angular-chart-demos/candlestick-charts/basic/
-
+const schema = [
+  {
+    name: "Date",
+    type: "date",
+    format: "%Y-%m-%d %H:%M"
+  },
+  {
+    name: "Open",
+    type: "number"
+  },
+  {
+    name: "High",
+    type: "number"
+  },
+  {
+    name: "Low",
+    type: "number"
+  },
+  {
+    name: "Close",
+    type: "number"
+  },
+  {
+    name: "Volume",
+    type: "number"
+  }
+];
 
 @Component({
   selector: 'app-root',
@@ -15,7 +40,10 @@ import * as FusionCharts from 'fusioncharts';
 export class AppComponent implements OnInit {
 
   data = [];
-  results= [];
+  winTrades = [];
+  loseTrades = [];
+  candleArray = [];
+  final_data = [];
   dataSource: any;
   type: string;
   width: string;
@@ -26,124 +54,77 @@ export class AppComponent implements OnInit {
     this.type = 'timeseries';
     this.width = '100%';
     this.height = '400';
-
     this.dataSource = {
-      caption: {
-        text: 'Apple Inc. Stock Price',
-      },
-      subcaption: {
-        text: 'Stock prices from May 2014 - November 2018',
+    
+      navigator: {
+        enabled: false,
       },
       chart: {
-        exportenabled: 1,
-        multicanvas: false,
-        theme: 'umber',
+        theme: "candy"
       },
+      caption: {
+        text: "Apple Inc. Stock Price"
+      },
+      data: null,
       yaxis: [
         {
-          plot: [
-            {
-              value: {
-                open: 'Open',
-                high: 'High',
-                low: 'Low',
-                close: 'Close',
-              },
-              type: 'candlestick',
+          plot: {
+            value: {
+              open: "Open",
+              high: "High",
+              low: "Low",
+              close: "Close",
+              volume: "Volume"
             },
-          ],
+            type: "candlestick"
+          },
           format: {
-            prefix: '$',
+            prefix: "$"
           },
-          title: 'Stock Price',
-        },
-      ],
-      datamarker: [
-        {
-          value: 'Open',
-          time: '08-Feb-2018',
-          type: 'pin',
-          identifier: 'L',
-          timeformat: '%d-%b-%Y',
-          tooltext: 'Lowest close value - 2018',
-        },
-        {
-          value: 'Volume',
-          time: '14-Sep-2016',
-          type: 'pin',
-          identifier: 'H',
-          timeformat: '%d-%b-%Y',
-          tooltext: 'Over 110 M shares were traded.',
-        },
-      ],
-      xaxis: {
-        plot: 'Time',
-        timemarker: [
-          {
-            start: '08-Feb-2018',
-            end: '03-Jan-2017',
-            label: 'Growing era of Apple Inc. stock',
-            timeformat: '%d-%b-%Y',
-            type: 'full',
-          },
-        ],
-      },
-      navigator: {
-        enabled: 0,
-      },
+          title: "Stock Value"
+        }
+      ]
     };
-
-    //this.fetchData();
   }
 
 
   async ngOnInit() {
-    await this.getDataFromFile();
-    this.setStrategy();
-  }
-
-
-  fetchData() {
-    var jsonify = (res) => res.json();
-    let  dataFetch = fetch(
-      'https://s3.eu-central-1.amazonaws.com/fusion.store/ft/data/annotations-on-stock-chart_data.json'
-    ).then(jsonify); 
-
-    let schemaFetch = fetch(
-      'https://s3.eu-central-1.amazonaws.com/fusion.store/ft/schema/annotations-on-stock-chart_schema.json'
-    ).then(jsonify);
-
-
-    Promise.all([dataFetch, schemaFetch]).then((res) => {
-      const [data, schema] = res;
-      const fusionDataStore = new FusionCharts.DataStore();
-      console.log("my data : " +this.data)
-      const fusionTable = fusionDataStore.createDataTable(this.data, schema);      
-      this.dataSource.data = fusionTable;
-    });
+      await this.getDataFromFile();
+      this.runBacktest();
   }
 
 
   getDataFromFile() {
     return new Promise<any>((resolve, reject) => {
-      this.http.get('assets/EURUSD1440_short.csv', { responseType: 'text' }).subscribe(
+      this.http.get('assets/EURUSD60.csv', { responseType: 'text' }).subscribe(
         (data) => {
-          let csvToRowArray = data.split('\n');
+          let csvToRowArray = data.split('\r\n');
           for (let index = 1; index < csvToRowArray.length - 1; index++) {
-            const element = csvToRowArray[index].split('\t');
+            const element = csvToRowArray[index].split('\t'); // d, o, h, l, c, v
             const date = element[0].split(" ")[0];
-
             this.data.push({
-                date: date, 
+              date: element[0], 
                 open: parseFloat(element[1]),
                 high: parseFloat(element[2]),
                 low: parseFloat(element[3]),
                 close: parseFloat(element[4]),
                 volume: parseFloat(element[5])
-              });
+            });
           }
-          //console.table(this.data);
-          //console.log(this.data);
+          
+          this.final_data = this.data.map((res) => {
+            return [
+              res.date,
+              res.open,
+              res.high,
+              res.low,
+              res.close,
+              res.volume
+            ];
+          });
+          
+          const fusionTable = new FusionCharts.DataStore().createDataTable(this.final_data, schema);
+          this.dataSource.data = fusionTable;
           resolve();
         },
         (error) => {
@@ -155,53 +136,113 @@ export class AppComponent implements OnInit {
   }
 
 
-  setStrategy() {
+  runBacktest() {
+    let buyPrice: any;
+    let stopPrice: any;
+    let profitPrice: any;
     console.log("data length", this.data.length);
     
     for (let i = 10; i < this.data.length; i++){
-      //console.log("data", this.data[i]);
-      let buyPrice: any;
-      let stopPrice: any;
-      let profitPrice: any;
-      
       if (this.inTrade) {
-        if (this.low(i, 0) < stopPrice) {
+        if (this.low(i, 0) <= stopPrice) {
           this.inTrade = false;
-          this.results.push(-1);
+          this.loseTrades.push(-1);
           console.log("SL", this.data[i]);
-        }
-
-        if (this.high(i, 0) > profitPrice) {
-          this.inTrade = false;
-          this.results.push(2);
-          console.log("TP", this.data[i]);
         }
       }
 
-      if (this.close(i, 0) > this.open(i, 0) && this.close(i, 1) > this.open(i, 1)) {
-        if (!this.inTrade) {
+      if (this.inTrade) {
+        if (this.high(i, 0) >= profitPrice) {
+          this.inTrade = false;
+          this.winTrades.push(2);
+          console.log("TP", this.data[i]);
+        }
+      }
+      
+      if (!this.inTrade) {
+        if (this.strategy_LSD(i)) {
           this.inTrade = true;
           buyPrice = this.close(i, 0);
           stopPrice = this.low(i, 0);
           profitPrice = buyPrice + (buyPrice - stopPrice) * 2;
-          console.log("Buy", this.data[i]);
+          console.log("-------------");
+          console.log("Candle", this.data[i]);
           console.log("buyPrice", buyPrice);
           console.log("stopPrice", stopPrice);
-          console.log("profitPrice", profitPrice);
+          console.log("profitPrice", this.round(profitPrice, 5));
         }
-        
-
-        //this.results.push({        })
       }
-      
     }
+    console.log("Number of trades", this.loseTrades.length + this.winTrades.length);
+    console.log("Total R:R", this.getTotalWin(this.loseTrades) + this.getTotalWin(this.winTrades));
+    console.log("Winrate %", this.round(this.loseTrades.length / (this.loseTrades.length + this.winTrades.length), 2));
   }
 
-  enterLong() {
-    
+
+
+
+  strategy_test(i: number) {
+    return this.close(i, 1) > this.open(i, 1) && this.close(i, 0) > this.open(i, 0);
   }
 
 
+  strategy_LSD(i: number) {
+    const lookback = 3;
+    const swingHigh = this.highest(i-1, "high", lookback);
+    const swingLow = this.lowest(i-1, "low", lookback);
+    const liquidityPips = (swingHigh - swingLow) / 5;
+    //console.log("swinghigh", swingHigh);
+    //console.log("swinglow", swingLow);
+    //console.log("low", this.low(i, 0));
+    //console.log("liquidity pips", liquidityPips);
+    const liquidityLow_OneCandle = this.isUp(i, 0) && this.low(i, 0) < swingLow;
+    const breakoutUp = this.close(i, 0) > swingHigh;
+
+    return liquidityLow_OneCandle && breakoutUp;
+  }
+
+
+  /**
+   * Retourne la valeur maximale en fonction de la source et de lookback
+   */
+  highest(index: number, source: string, lookback: number) {
+    let max: number;
+
+    for (let k = 0; k < lookback; k++) {
+      if (k == 0) {
+        max = this.data[index - k][source];
+      }
+
+      if (this.data[index - k][source] > max) {
+        max = this.data[index - k][source];
+      }
+    }
+    return max;
+  }
+
+
+  /**
+   * Retourne la valeur minimale en fonction de la source et de lookback
+   */
+  lowest(index: number, source: string, lookback: number) {
+    let min: number;
+
+    for (let k = 0; k < lookback; k++) {
+      if (k == 0) {
+        min = this.data[index - k][source];
+      }
+
+      if (this.data[index - k][source] < min) {
+        min = this.data[index - k][source];
+      }
+    }
+    return min;
+  }
+
+
+  isUp(index: number, lookback: number) {
+    return (this.data[index - lookback].close > this.data[index - lookback].open);
+  }
 
   open(index: number, lookback: number) {
     return this.data[index - lookback].open;
@@ -228,10 +269,17 @@ export class AppComponent implements OnInit {
   }
 
 
+  getTotalWin(result: any[]) {
+    let total = 0;
+    result.forEach(element => {
+      total += element;
+    });
+
+    return total;
+  }
+
     /**
      * Arrondi un nombre avec une certaine précision.
-     * @param value 
-     * @param precision 
      */
     round(value: number, precision: number) {
       const multiplier = Math.pow(10, precision || 0);
@@ -239,28 +287,3 @@ export class AppComponent implements OnInit {
   }
 
 }
-
-
-
-
-/*
- let donnee = [
-        [
-          "2012-08-28",  
-          18.74,
-          19.16,
-          18.67,
-          18.99,
-          4991285
-        ],
-        [
-          "2012-08-29",    
-          23.97,
-          23.99,
-          23.14,
-          23.32,
-          4879546
-        ]
-    ];
-
-    */
