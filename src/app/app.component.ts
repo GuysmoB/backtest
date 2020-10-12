@@ -26,49 +26,7 @@ export class AppComponent implements OnInit {
   width: string;
   height: string;
   inLong = false;
-
-
-
-  public data1: Object[] = []
-  public primaryXAxis: Object = {
-    valueType: 'DateTime', majorGridLines: { width: 0 }, crosshairTooltip: { enable: true }
-  };
-
-  public primaryYAxis: Object = {
-    lineStyle: { color: 'transparent' },
-    majorTickLines: { color: 'transparent', width: 0 }
-  };
-  public chartArea: Object = {
-    border: {
-      width: 0
-    }
-  };
-  public crosshair: Object = {
-    enable: true
-  };
-  public tooltip: object = { enable: true };
-  public tooltipRender(args: ITooltipRenderEventArgs): void {
-    if (args.text.split('<br/>')[4]) {
-      let target: number = parseInt(args.text.split('<br/>')[4].split('<b>')[1].split('</b>')[0], 10);
-      let value: string = (target / 100000000).toFixed(1) + 'B';
-      args.text = args.text.replace(args.text.split('<br/>')[4].split('<b>')[1].split('</b>')[0], value);
-    }
-  };
-  public axisLabelRender(args: IAxisLabelRenderEventArgs): void {
-    let text: number = parseInt(args.text, 10);
-    if (args.axis.name === 'primaryYAxis') {
-      args.text = text / 100000000 + 'B';
-    }
-  };
-  public load(args: IStockChartEventArgs): void {
-    let selectedTheme: string = location.hash.split('/')[1];
-    selectedTheme = selectedTheme ? selectedTheme : 'Material';
-    args.stockChart.theme = <ChartTheme>(selectedTheme.charAt(0).toUpperCase() + selectedTheme.slice(1)).replace(/-dark/i, "Dark");
-  };
-  public title: string = 'AAPL Historical';
-  public titleStyle: object = { color: 'black' };
-
-
+  logEnable = false;
 
   constructor(private http: HttpClient, private graphService: GraphService) { }
 
@@ -86,29 +44,20 @@ export class AppComponent implements OnInit {
         res.volume];
     });
     this.initGraphProperties();
-    //const fusionTable = new FusionCharts.DataStore().createDataTable(this.finalData, this.graphService.schema);
-    //this.dataSource.data = fusionTable;
-    //
+    const fusionTable = new FusionCharts.DataStore().createDataTable(this.finalData, this.graphService.schema);
+    this.dataSource.data = fusionTable;
   }
 
 
   getDataFromFile(): Promise<any> {
     return new Promise<any>((resolve, reject) => {
-      this.http.get('assets/EURUSD1440.csv', { responseType: 'text' }).subscribe(
+      this.http.get('assets/EURUSD60.csv', { responseType: 'text' }).subscribe(
         (data) => {
           const csvToRowArray = data.split('\r\n');
           for (let index = 1; index < csvToRowArray.length - 1; index++) {
             const element = csvToRowArray[index].split('\t'); // d, o, h, l, c, v
             this.data.push({
               date: element[0],
-              open: parseFloat(element[1]),
-              high: parseFloat(element[2]),
-              low: parseFloat(element[3]),
-              close: parseFloat(element[4]),
-              volume: parseFloat(element[5])
-            });
-            this.data1.push({
-              x: new Date(element[0]),
               open: parseFloat(element[1]),
               high: parseFloat(element[2]),
               low: parseFloat(element[3]),
@@ -141,7 +90,7 @@ export class AppComponent implements OnInit {
           this.loseTrades.push(-1);
           longTimeMarker.end = this.date(i, 0);
           this.timeMarkerArray.push(longTimeMarker);
-          console.log('SL', this.data[i]);
+          this.logEnable ? console.log('SL', this.data[i]) : '';
         }
       }
 
@@ -151,7 +100,7 @@ export class AppComponent implements OnInit {
           this.winTrades.push(2);
           longTimeMarker.end = this.date(i, 0);
           this.timeMarkerArray.push(longTimeMarker);
-          console.log('TP', this.data[i]);
+          this.logEnable ? console.log('TP', this.data[i]) : '';
         }
       }
 
@@ -160,12 +109,14 @@ export class AppComponent implements OnInit {
           this.inLong = true;
           buyPrice = this.close(i, 0);
           stopPrice = this.low(i, 0);
-          profitPrice = buyPrice + (buyPrice - stopPrice) * 2;
-          console.log('-------------');
-          console.log('Entry trade', this.data[i]);
-          console.log('buyPrice', buyPrice);
-          console.log('stopPrice', stopPrice);
-          console.log('profitPrice', this.round(profitPrice, 5));
+          profitPrice = buyPrice + (buyPrice - stopPrice) * 1;
+          if (this.logEnable) {
+            console.log('-------------');
+            console.log('Entry trade', this.data[i]);
+            console.log('buyPrice', buyPrice);
+            console.log('stopPrice', stopPrice);
+            console.log('profitPrice', this.round(profitPrice, 5));
+          } 
           longTimeMarker = this.setLongTimeMarker(i);
         }
       }
@@ -189,25 +140,29 @@ export class AppComponent implements OnInit {
     const swingHigh2 = this.highest(i - 2, 'high', lookback);
     const swingLow1 = this.lowest(i - 1, 'low', lookback);
     const swingLow2 = this.lowest(i - 2, 'low', lookback);
+    const range1 = (swingHigh1 - swingLow1);
+    const range2 = (swingHigh2 - swingLow2);
+    const smallRange1 = (swingHigh1 - swingLow1) < 0.005;
+    const smallRange2 = (swingHigh2 - swingLow2) < 0.01;
     const liquidityPips = 0//(swingHigh1 - swingLow1) / 5;
-    // console.log("swinghigh", swingHigh);
-    // console.log("swinglow", swingLow);
-    // console.log("low", this.low(i, 0));
-    // console.log("liquidity pips", liquidityPips);
+
     const liquidityLow_OneCandle = this.isUp(i, 0) && (swingLow1 - this.low(i, 0)) > liquidityPips;
-    const liquidityLow_TwoCandles = !this.isUp(i, 1) && this.isUp(i, 0) && (swingLow2 - this.low(i, 1)) > liquidityPips;
+    const liquidityLow_TwoCandlesDownUp = smallRange2 && !this.isUp(i, 1) && this.isUp(i, 0) && (swingLow2 - this.low(i, 1)) > liquidityPips;
+    const liquidityLow_TwoCandlesUp = smallRange2 && this.isUp(i, 1) && (swingLow2 - this.low(i, 1)) > liquidityPips && this.isUp(i, 0);
     const breakoutUp = this.close(i, 0) > swingHigh1;
-    //const exception = ;
-    //console.log(this.date(i, 0));
-    if (this.date(i, 0) === '2007-03-25 00:00') {
-      console.log('this.date(i, 0)', this.date(i, 0));
-      console.log('candle', this.data[i]);
-      console.log('!this.isUp(i, 1)', !this.isUp(i, 1));
-      console.log('this.isUp(i, 0)', this.isUp(i, 0));
-      console.log('');
+    //const exception = 3 low de plus en plus faible avec One et Two candle
+    // Si TwoCandle alors SL en dessous du swinglow ou de la -1 ?
+    // Si TwoCandle, smallRange doit prendre en compte la -1 ?  01 Feb 2013 en 1H
+    if (this.date(i, 0) === '2013-04-03 00:00') {
+      console.log("Candle", this.data[i])
+      console.log("Candle1", this.data[i-1])
+      console.log("swinglow1", swingLow1);
+      console.log("this.isUp(i, 1)", this.isUp(i, 1))
+      console.log("this.isUp(i, 0)", this.isUp(i, 0))
+      console.log("(swingLow1 - this.low(i, 1)) > liquidityPips", (swingLow1 - this.low(i, 1)) > liquidityPips)
     }
 
-    return (liquidityLow_OneCandle || liquidityLow_TwoCandles) && breakoutUp;
+    return (liquidityLow_OneCandle || liquidityLow_TwoCandlesDownUp || liquidityLow_TwoCandlesUp) && breakoutUp;
   }
 
 
@@ -314,7 +269,7 @@ export class AppComponent implements OnInit {
   initGraphProperties(): void {
     this.type = 'timeseries';
     this.width = '100%';
-    this.height = '800';
+    this.height = '600';
     this.dataSource = this.graphService.dataSource;
     this.dataSource.xAxis.timemarker = this.timeMarkerArray;
   }
