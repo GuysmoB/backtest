@@ -16,9 +16,14 @@ import { ChartTheme, IAxisLabelRenderEventArgs, IStockChartEventArgs, ITooltipRe
 })
 export class AppComponent implements OnInit {
 
+  /**
+   * ## TODO ##
+   * interêts composés,
+   * Intégrés les courbes des R:R gagnés,
+   * 
+   */
+
   data = [];
-  winTrades = [];
-  loseTrades = [];
   finalData = [];
   timeMarkerArray = [];
   dataSource: any;
@@ -27,6 +32,7 @@ export class AppComponent implements OnInit {
   height: string;
   inLong = false;
   logEnable = false;
+  displayChart = false;
 
   constructor(private http: HttpClient, private graphService: GraphService) { }
 
@@ -77,53 +83,69 @@ export class AppComponent implements OnInit {
 
 
   runBacktest(): void {
-    let buyPrice: any;
-    let stopPrice: any;
-    let profitPrice: any;
+    let entryPrice: any;
+    let stopLoss: any;
+    let takeProfit: any;
+    //let rrArray = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+    let rrArray = [1];
     let longTimeMarker: any;
     console.log('data length', this.data.length);
 
-    for (let i = 10; i < this.data.length; i++) {
-      if (this.inLong) {
-        if (this.low(i, 0) <= stopPrice) {
-          this.inLong = false;
-          this.loseTrades.push(-1);
-          longTimeMarker.end = this.date(i, 0);
-          this.timeMarkerArray.push(longTimeMarker);
-          this.logEnable ? console.log('SL', this.data[i]) : '';
-        }
-      }
+    for (let rr = 1; rr <= rrArray.length; rr++) {
+      let winTrades = [];
+      let loseTrades = [];
+      let allTrades = [];
 
-      if (this.inLong) {
-        if (this.high(i, 0) >= profitPrice) {
-          this.inLong = false;
-          this.winTrades.push(2);
-          longTimeMarker.end = this.date(i, 0);
-          this.timeMarkerArray.push(longTimeMarker);
-          this.logEnable ? console.log('TP', this.data[i]) : '';
+      for (let i = 10; i < this.data.length; i++) {
+        if (this.inLong) {
+          if (this.low(i, 0) <= stopLoss) {
+            this.inLong = false;
+            loseTrades.push(-1);
+            allTrades.push(-1);
+            longTimeMarker.end = this.date(i, 0);
+            this.timeMarkerArray.push(longTimeMarker);
+            this.logEnable ? console.log('SL', this.data[i]) : NaN;
+          }
         }
-      }
 
-      if (!this.inLong) {
-        if (this.strategy_LSD_Long(i)) {
-          this.inLong = true;
-          buyPrice = this.close(i, 0);
-          stopPrice = this.low(i, 0);
-          profitPrice = buyPrice + (buyPrice - stopPrice) * 1;
-          if (this.logEnable) {
-            console.log('-------------');
-            console.log('Entry trade', this.data[i]);
-            console.log('buyPrice', buyPrice);
-            console.log('stopPrice', stopPrice);
-            console.log('profitPrice', this.round(profitPrice, 5));
-          } 
-          longTimeMarker = this.setLongTimeMarker(i);
+        if (this.inLong) {
+          if (this.high(i, 0) >= takeProfit) {
+            this.inLong = false;
+            winTrades.push(rr);
+            allTrades.push(rr);
+            longTimeMarker.end = this.date(i, 0);
+            this.timeMarkerArray.push(longTimeMarker);
+            this.logEnable ? console.log('TP', this.data[i]) : NaN;
+          }
+        }
+
+        if (!this.inLong) {
+          const res = this.strategy_LSD_Long(i, rr);
+          if (res.startTrade) {
+            this.inLong = true;
+            entryPrice = res.entryPrice;
+            stopLoss = res.stopLoss
+            takeProfit = res.takeProfit;
+            longTimeMarker = this.setLongTimeMarker(i);
+
+            if (this.logEnable) {
+              console.log('---');
+              console.log('Entry trade', this.data[i]);
+              console.log('buyPrice', entryPrice);
+              console.log('stopPrice', stopLoss);
+              console.log('R:R', rr);
+              console.log('profitPrice', this.round(takeProfit, 5));
+            } 
+          }
         }
       }
-    }
-    console.log('Number of trades', this.loseTrades.length + this.winTrades.length);
-    console.log('Total R:R', this.getTotalWin(this.loseTrades) + this.getTotalWin(this.winTrades));
-    console.log('Winrate %', this.round(this.loseTrades.length / (this.loseTrades.length + this.winTrades.length), 2));
+      console.log('-------------');
+      console.log('Trades : Gagnes / Perdus / Total', winTrades.length, loseTrades.length, winTrades.length + loseTrades.length);
+      console.log('R:R target', rr);
+      console.log('Total R:R', loseTrades.reduce((a,b) => a + b, 0) + winTrades.reduce((a,b) => a + b, 0));
+      console.log('Avg R:R', this.round(allTrades.reduce((a,b) => a + b, 0) / allTrades.length, 2));
+      console.log('Winrate ' +this.round(winTrades.length / (loseTrades.length + winTrades.length), 2) * 100 +'%');
+    } // Fin RR array
   }
 
 
@@ -134,7 +156,7 @@ export class AppComponent implements OnInit {
   }
 
 
-  strategy_LSD_Long(i: number): boolean {
+  strategy_LSD_Long(i: number, rr: number): any {
     const lookback = 3;
     const swingHigh1 = this.highest(i - 1, 'high', lookback);
     const swingHigh2 = this.highest(i - 2, 'high', lookback);
@@ -145,24 +167,34 @@ export class AppComponent implements OnInit {
     const smallRange1 = (swingHigh1 - swingLow1) < 0.005;
     const smallRange2 = (swingHigh2 - swingLow2) < 0.01;
     const liquidityPips = 0//(swingHigh1 - swingLow1) / 5;
+    const smallerLow1 = this.low(i, 3) > this.low(i, 2) && this.low(i, 2) > this.low(i, 1);
+    const smallerLow2 = this.low(i, 4) > this.low(i, 3) && this.low(i, 3) > this.low(i, 2);
 
-    const liquidityLow_OneCandle = this.isUp(i, 0) && (swingLow1 - this.low(i, 0)) > liquidityPips;
-    const liquidityLow_TwoCandlesDownUp = smallRange2 && !this.isUp(i, 1) && this.isUp(i, 0) && (swingLow2 - this.low(i, 1)) > liquidityPips;
-    const liquidityLow_TwoCandlesUp = smallRange2 && this.isUp(i, 1) && (swingLow2 - this.low(i, 1)) > liquidityPips && this.isUp(i, 0);
+
+    const liquidityLow_OneCandle = !smallerLow1 && this.isUp(i, 0) && (swingLow1 - this.low(i, 0)) > liquidityPips;
+    const liquidityLow_TwoCandlesDownUp = !smallerLow2 && smallRange2 && !this.isUp(i, 1) && this.isUp(i, 0) && (swingLow2 - this.low(i, 1)) > liquidityPips;
+    const liquidityLow_TwoCandlesUp = !smallerLow2 && smallRange2 && this.isUp(i, 1) && (swingLow2 - this.low(i, 1)) > liquidityPips && this.isUp(i, 0);
     const breakoutUp = this.close(i, 0) > swingHigh1;
-    //const exception = 3 low de plus en plus faible avec One et Two candle
+
     // Si TwoCandle alors SL en dessous du swinglow ou de la -1 ?
     // Si TwoCandle, smallRange doit prendre en compte la -1 ?  01 Feb 2013 en 1H
-    if (this.date(i, 0) === '2013-04-03 00:00') {
+    /*if (this.date(i, 0) === '2013-04-03 00:00') {
       console.log("Candle", this.data[i])
       console.log("Candle1", this.data[i-1])
       console.log("swinglow1", swingLow1);
       console.log("this.isUp(i, 1)", this.isUp(i, 1))
       console.log("this.isUp(i, 0)", this.isUp(i, 0))
       console.log("(swingLow1 - this.low(i, 1)) > liquidityPips", (swingLow1 - this.low(i, 1)) > liquidityPips)
-    }
+    }*/
 
-    return (liquidityLow_OneCandle || liquidityLow_TwoCandlesDownUp || liquidityLow_TwoCandlesUp) && breakoutUp;
+    const stopLoss = (liquidityLow_TwoCandlesDownUp || liquidityLow_TwoCandlesUp) ? swingLow2 : liquidityLow_OneCandle ? swingLow1 : NaN;
+
+    return {
+      startTrade: (liquidityLow_OneCandle || liquidityLow_TwoCandlesDownUp || liquidityLow_TwoCandlesUp) && breakoutUp,
+      stopLoss: stopLoss,
+      entryPrice: swingHigh1,
+      takeProfit: swingHigh1 + (swingHigh1 - stopLoss) * rr
+    }
   }
 
 
@@ -232,15 +264,6 @@ export class AppComponent implements OnInit {
     return this.data[index - lookback].volume;
   }
 
-
-  getTotalWin(result: any[]): number {
-    let total = 0;
-    result.forEach(element => {
-      total += element;
-    });
-
-    return total;
-  }
 
   /**
    * Arrondi un nombre avec une certaine précision.
