@@ -30,10 +30,8 @@ export class AppComponent implements OnInit {
   type: string;
   width: string;
   height: string;
-  inLong = false;
-  logEnable = true;
   displayChart = false;
-  isTrailingEnabled = true;
+  logEnable = false;
 
   constructor(private http: HttpClient, private graphService: GraphService) { }
 
@@ -89,28 +87,108 @@ export class AppComponent implements OnInit {
     let updatedStopLoss: any;
     let takeProfit: any;
     //let rrArray = [1, 2, 3, 4, 5, 6, 7, 8, 9];
-    let rrArray = [5];
+    let rrArray = [3];
     let longTimeMarker: any;
     console.log('data length', this.data.length);
 
-    for (let rr = 1; rr <= rrArray.length; rr++) {
-      rr = this.isTrailingEnabled ? 2 : rr;
+    for (let j = 0; j < rrArray.length; j++) {
+      let winTrades = [];
+      let loseTrades = [];
+      let allTrades = [];
+      let inLong = false;
+      let isTrailingStopLoss = false;
+      let isFixedTakeProfitAndStopLoss = false;
+      let isFixedTakeProfitAndBreakEvenStopLoss = true;
+      let isHeikenAshi = false;
+
+      let targetRR: number;
+      if (rrArray[j] === 99) {
+        isTrailingStopLoss = true;
+        targetRR = 2;
+      } else {
+        isFixedTakeProfitAndBreakEvenStopLoss = true;
+        targetRR = rrArray[j];
+      }
+
+      for (let i = 10; i < this.data.length; i++) {       //for (let i = 3989; i < 4101; i++) {
+        if (i === (this.data.length - 1)) {
+          inLong = false;
+        }
+    
+        let rr: number;
+        if (inLong) {
+          if (isFixedTakeProfitAndStopLoss) {
+            rr = this.getFixedTakeProfitAndStopLoss(i, entryPrice, initialStopLoss, takeProfit)
+          } else if (isFixedTakeProfitAndBreakEvenStopLoss) {
+            rr = this.getFixedTakeProfitpAndBreakEvenStopLoss(i, entryPrice, initialStopLoss, updatedStopLoss, takeProfit, targetRR);
+          } else if (isTrailingStopLoss) {
+            rr = this.getTrailingTakeProfit(i, entryPrice, initialStopLoss, updatedStopLoss);
+          } else if (isHeikenAshi) {
+            
+          }
+        }	
+    
+        if (rr === 0) {
+          console.log('rr 0', rr)
+        }
+
+        if (rr) {
+          inLong = false;
+          allTrades.push(rr);
+          longTimeMarker.end = this.date(i, 0);
+          this.timeMarkerArray.push(longTimeMarker);
+    
+          if (rr >= 0) {
+            console.log('push rr', rr)
+            winTrades.push(rr);
+          } else if (rr < 0) {
+            console.log('push rr -1', rr)
+            loseTrades.push(rr);
+          }
+        }
+    
+        if (!inLong) {
+          const res = this.strategy_LSD_Long(i);
+          if (res.startTrade) {
+            inLong = true;
+            entryPrice = res.entryPrice;
+            initialStopLoss = updatedStopLoss = res.stopLoss;
+            takeProfit = entryPrice + (entryPrice - initialStopLoss) * targetRR;
+            longTimeMarker = this.setLongTimeMarker(i);
+          }
+        }
+      }
+      console.log('-------------');
+      console.log('Trades : Gagnes / Perdus / Total', winTrades.length, loseTrades.length, winTrades.length + loseTrades.length);
+      console.log('R:R target', targetRR);
+      console.table('all R:R', allTrades);
+      console.log('Total R:R', this.round(loseTrades.reduce((a,b) => a + b, 0) + winTrades.reduce((a,b) => a + b, 0), 2));
+      console.log('Avg R:R', this.round(allTrades.reduce((a,b) => a + b, 0) / allTrades.length, 2));
+      console.log('Winrate ' +this.round(winTrades.length / (loseTrades.length + winTrades.length), 2) * 100 +'%');
+    } // Fin RR array
+
+    /* for (let j = 0; j < rrArray.length; j++) {
+      
+      let initialRR: number;
+      if (rrArray[j] === 99) {
+        this.isTrailingEnabled = true;
+        initialRR = 2;
+      } else {
+        initialRR = rrArray[j];
+      }
+
       let winTrades = [];
       let loseTrades = [];
       let allTrades = [];
 
-      for (let i = 10; i < this.data.length; i++) {
-      //for (let i = 3989; i < 4101; i++) {
-
+      for (let i = 10; i < this.data.length; i++) {       //for (let i = 3989; i < 4101; i++) {
         if (this.inLong) {
-          updatedStopLoss = this.updateStopLoss(this.data[i], entryPrice, initialStopLoss, updatedStopLoss, i);
-          takeProfit = (updatedStopLoss !== initialStopLoss) ? takeProfit = NaN : takeProfit;
-          console.log('update SL', updatedStopLoss);
+          updatedStopLoss = this.updateStopLoss(this.data[i], entryPrice, initialStopLoss, updatedStopLoss, i, 0.7);
 
-          if (this.low(i, 0) <= updatedStopLoss) {
+          if (this.low(i, 0) <= updatedStopLoss || i === (this.data.length - 1)) {
             this.inLong = false;
-            let finalRR = this.getRiskRewardSL(updatedStopLoss, entryPrice, initialStopLoss, takeProfit);
-            console.log('get RR SL', finalRR);
+            let finalRR = this.getRiskRewardSL(updatedStopLoss, entryPrice, initialStopLoss);
+            this.logEnable ? console.log('get RR SL', finalRR) : NaN ;
             finalRR > 0 ? winTrades.push(finalRR) : loseTrades.push(finalRR);
             allTrades.push(finalRR);
             longTimeMarker.end = this.date(i, 0);
@@ -120,10 +198,11 @@ export class AppComponent implements OnInit {
         }
 
         if (this.inLong) {
-          if (this.high(i, 0) >= takeProfit && !this.isTrailingEnabled) {
+          takeProfit = (updatedStopLoss !== initialStopLoss) ? NaN : takeProfit;
+          if (this.high(i, 0) >= takeProfit) {
             this.inLong = false;
             let finalRR2 = this.getRiskRewardTP(entryPrice, initialStopLoss, takeProfit);
-            console.log('get RR TP', finalRR2);
+            console.log('get RR TP', finalRR2) ;
             winTrades.push(finalRR2);
             allTrades.push(finalRR2);
             longTimeMarker.end = this.date(i, 0);
@@ -133,13 +212,13 @@ export class AppComponent implements OnInit {
         }
 
         if (!this.inLong) {
-          const res = this.strategy_LSD_Long(i, rr);
+          const res = this.strategy_LSD_Long(i);
           if (res.startTrade) {
             this.inLong = true;
             entryPrice = res.entryPrice;
             initialStopLoss = res.stopLoss
             updatedStopLoss = res.stopLoss
-            takeProfit = res.takeProfit;
+            takeProfit = entryPrice + (entryPrice - initialStopLoss) * initialRR; //res.takeProfit;
             longTimeMarker = this.setLongTimeMarker(i);
 
             if (this.logEnable) {
@@ -148,7 +227,6 @@ export class AppComponent implements OnInit {
               console.log('Candle number', i);
               console.log('entryPrice', entryPrice);
               console.log('init stopLoss', initialStopLoss);
-              //console.log('R:R', rr);
               console.log('takeProfit', this.round(takeProfit, 5));
             } 
           }
@@ -156,11 +234,12 @@ export class AppComponent implements OnInit {
       }
       console.log('-------------');
       console.log('Trades : Gagnes / Perdus / Total', winTrades.length, loseTrades.length, winTrades.length + loseTrades.length);
-      console.log('R:R target', rr);
-      console.log('Total R:R', loseTrades.reduce((a,b) => a + b, 0) + winTrades.reduce((a,b) => a + b, 0));
+      console.log('R:R target', initialRR);
+      console.table('all R:R', allTrades);
+      console.log('Total R:R', this.round(loseTrades.reduce((a,b) => a + b, 0) + winTrades.reduce((a,b) => a + b, 0), 2));
       console.log('Avg R:R', this.round(allTrades.reduce((a,b) => a + b, 0) / allTrades.length, 2));
       console.log('Winrate ' +this.round(winTrades.length / (loseTrades.length + winTrades.length), 2) * 100 +'%');
-    } // Fin RR array
+    } // Fin RR array */
   }
 
 
@@ -171,20 +250,17 @@ export class AppComponent implements OnInit {
   }
 
 
-  strategy_LSD_Long(i: number, rr: number): any {
+  strategy_LSD_Long(i: number): any {
     const lookback = 3;
     const swingHigh1 = this.highest(i - 1, 'high', lookback);
     const swingHigh2 = this.highest(i - 2, 'high', lookback);
     const swingLow1 = this.lowest(i - 1, 'low', lookback);
     const swingLow2 = this.lowest(i - 2, 'low', lookback);
-    const range1 = (swingHigh1 - swingLow1);
-    const range2 = (swingHigh2 - swingLow2);
     const smallRange1 = (swingHigh1 - swingLow1) < 0.005;
     const smallRange2 = (swingHigh2 - swingLow2) < 0.01;
     const liquidityPips = 0//(swingHigh1 - swingLow1) / 5;
     const smallerLow1 = this.low(i, 3) > this.low(i, 2) && this.low(i, 2) > this.low(i, 1);
     const smallerLow2 = this.low(i, 4) > this.low(i, 3) && this.low(i, 3) > this.low(i, 2);
-
 
     const liquidityLow_OneCandle = !smallerLow1 && this.isUp(i, 0) && (swingLow1 - this.low(i, 0)) > liquidityPips;
     const liquidityLow_TwoCandlesDownUp = !smallerLow2 && smallRange2 && !this.isUp(i, 1) && this.isUp(i, 0) && (swingLow2 - this.low(i, 1)) > liquidityPips;
@@ -207,54 +283,90 @@ export class AppComponent implements OnInit {
     return {
       startTrade: (liquidityLow_OneCandle || liquidityLow_TwoCandlesDownUp || liquidityLow_TwoCandlesUp) && breakoutUp,
       stopLoss: stopLoss,
-      entryPrice: swingHigh1,
-      takeProfit: swingHigh1 + (swingHigh1 - stopLoss) * rr
+      entryPrice: swingHigh1
     }
   }
 
-
-  updateTakeProfit(candle: any, entryPrice: number, initialStopLoss: number, updatedTP: number) {
-    if (this.isTrailingEnabled) {
-      let rr2 = entryPrice + (entryPrice - initialStopLoss) * 2;
-      let rr3 = entryPrice + (entryPrice - initialStopLoss) * 3;
   
-      if (candle.high >= rr2 && updatedTP < entryPrice) {
-        updatedTP = entryPrice;
-      }
+  getFixedTakeProfitAndStopLoss(i: number, entryPrice: number, initialStopLoss: number, takeProfit: number) {
+    let result: number;
   
-      if (candle.high >= rr3 && ((candle.high - entryPrice) * 0.5) > updatedTP) {
-        updatedTP = (candle.high - entryPrice) * 0.5;
-      }
+    if (this.low(i, 0) <= initialStopLoss) {
+      result = -1;       
+      this.logEnable ? console.log('SL', this.data[i]) : NaN;
+    } else if (this.high(i, 0) >= takeProfit) {
+      result = this.getRiskRewardTP(entryPrice, initialStopLoss, takeProfit);
+      this.logEnable ? console.log('TP', this.data[i]) : NaN;
     }
-  
-    return updatedTP;
+   
+      return result;
   }
 
-  updateStopLoss(candle: any, entryPrice: number, initialStopLoss: number, updatedStopLoss: number, i: number): any {
-    if (this.isTrailingEnabled) {
-      let rr2 = entryPrice + (entryPrice - initialStopLoss) * 2;
-      let rr3 = entryPrice + (entryPrice - initialStopLoss) * 2.5;
+
+  getFixedTakeProfitpAndBreakEvenStopLoss(i: number, entryPrice: number, initialStopLoss: number, updatedStopLoss: number, takeProfit: number, targetRR: number) {
+    let result: number;
+    let breakEvenStopLoss = this.updateStopLossToBreakEven(this.data[i], entryPrice, initialStopLoss, updatedStopLoss, targetRR);
+
+    if (this.low(i, 0) <= breakEvenStopLoss) {
+      result = 0;
+      this.logEnable ? console.log('SL', this.data[i]) : NaN;
+    } else if (this.high(i, 0) >= takeProfit) {
+      result = this.getRiskRewardTP(entryPrice, initialStopLoss, takeProfit);
+      this.logEnable ? console.log('TP', this.data[i]) : NaN;
+    } 
+   
+      return result;
+  }
+
+
+  getTrailingTakeProfit(i: number, entryPrice: number, initialStopLoss: number, updatedStopLoss: number) {
+    let result;
+    updatedStopLoss = this.updateStopLoss(this.data[i], entryPrice, initialStopLoss, updatedStopLoss, 0.7);
   
-      if (candle.high >= rr2 && updatedStopLoss < entryPrice) {
-        updatedStopLoss = entryPrice;
-        console.log('To BE', candle)
-      }
+    if (this.low(i, 0) <= updatedStopLoss) {
+      result = this.getRiskRewardSL(updatedStopLoss, entryPrice, initialStopLoss);
+      this.logEnable ? console.log('SL', this.data[i]) : NaN;
+    }	
   
-      if (candle.high >= rr3 && (entryPrice + (candle.high - entryPrice) * 0.5) > updatedStopLoss) {
-        updatedStopLoss = entryPrice + (candle.high - entryPrice) * 0.5;
-      }
+    return result;
+  }
+
+  updateStopLoss(candle: any, entryPrice: number, initialStopLoss: number, updatedStopLoss: number, trailingNumber: number): any {
+    if (trailingNumber > 1) { 
+      console.error('trailingNumber too big');
+    }
+    
+    let step1 = entryPrice + (entryPrice - initialStopLoss) * 2;
+    let step2 = entryPrice + (entryPrice - initialStopLoss) * 3;
+
+    if (candle.high >= step1 && updatedStopLoss < entryPrice) {
+      updatedStopLoss = entryPrice;
+      this.logEnable ? console.log('To BE', candle.date) : NaN;
+    }
+
+    if (candle.high >= step2 && (entryPrice + (candle.high - entryPrice) * trailingNumber) > updatedStopLoss) {
+      updatedStopLoss = entryPrice + (candle.high - entryPrice) * trailingNumber;
+      this.logEnable ? console.log('Starting Trailing', candle.date) : NaN;
     }
 
     return updatedStopLoss;
   }
   
 
-  getRiskRewardSL(updatedStopLoss: number, entryPrice: number, initialStopLoss: number, takeProfit: number) {
-    if (updatedStopLoss >= entryPrice) {
-      return this.round((updatedStopLoss - entryPrice) / (entryPrice - initialStopLoss), 2);
-    } else {
-      return this.round((takeProfit - entryPrice) / (entryPrice - initialStopLoss), 2);
+  updateStopLossToBreakEven(candle: any, entryPrice: number, initialStopLoss: number, updatedStopLoss: number, targetRR: number): any {
+    let step1 = entryPrice + (entryPrice - initialStopLoss) * (targetRR * 0.5);
+
+    if (candle.high >= step1 && updatedStopLoss < entryPrice) {
+      updatedStopLoss = entryPrice;
+      this.logEnable ? console.log('To BE', candle.date) : NaN;
     }
+
+    return updatedStopLoss;
+  }
+
+
+  getRiskRewardSL(updatedStopLoss: number, entryPrice: number, initialStopLoss: number) {  
+      return this.round((updatedStopLoss - entryPrice) / (entryPrice - initialStopLoss), 2);
   }
 
   getRiskRewardTP(entryPrice: number, initialStopLoss: number, takeProfit: number) {
