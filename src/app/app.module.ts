@@ -1,4 +1,5 @@
 import { GraphService } from './services/graph.service';
+import { StrategiesService } from './services/strategies.service';
 import { BrowserModule } from '@angular/platform-browser';
 import { NgModule } from '@angular/core';
 import { AppComponent } from './app.component';
@@ -25,7 +26,7 @@ FusionChartsModule.fcRoot(FusionCharts, Charts, FusionTheme, TimeSeries, Candy);
     FusionChartsModule,
     StockChartAllModule, RangeNavigatorAllModule, ChartAllModule,
   ],
-  providers: [],
+  providers: [GraphService, StrategiesService],
   bootstrap: [AppComponent]
 })
 export class AppModule { }
