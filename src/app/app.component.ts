@@ -1,5 +1,8 @@
+import { ExitStrategiesService } from './services/exit-strategies.service';
+import { EntryStrategiesService } from './services/entry-strategies.service';
+import { UtilsService } from './services/utils.service';
 import { GraphService } from './services/graph.service';
-import { Utils } from './abstract/utils';
+import { CandleAbstract } from './abstract/candleAbstract';
 import { HttpClient } from '@angular/common/http';
 import { Component, OnInit } from '@angular/core';
 import * as FusionCharts from 'fusioncharts';
@@ -14,13 +17,12 @@ import * as FusionCharts from 'fusioncharts';
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.css'],
 })
-export class AppComponent extends Utils implements OnInit {
+export class AppComponent extends CandleAbstract implements OnInit {
 
   /**
    * ## TODO ##
    * interêts composés,
    * Intégrés les courbes des R:R gagnés,
-   * la tableau des RR fixe nest plus utilisable à cause des logs mis en haut
    */
 
   // assetsArray = ['EURGBP60.csv'];
@@ -37,16 +39,17 @@ export class AppComponent extends Utils implements OnInit {
   width: string;
   height: string;
   displayChart = false;
-  logEnable = false;
 
-  constructor(private http: HttpClient, private graphService: GraphService) {
+  constructor(private http: HttpClient, private graphService: GraphService, private utils: UtilsService, private esService: EntryStrategiesService, private exService: ExitStrategiesService) {
     super();
   }
 
-
+  /**
+   * Initialisation
+   */
   async ngOnInit(): Promise<void> {
-    const rrArray = [4, 5, 6, 7, 8, 9, 10];
-    // const rrArray = [0.9];
+    //const rrArray = [4, 5, 6, 7, 8, 9, 10];
+    const rrArray = [0.9];
     for (const rr of rrArray) {
       this.winTrades = [];
       this.loseTrades = [];
@@ -60,9 +63,9 @@ export class AppComponent extends Utils implements OnInit {
       console.log('-------------');
       console.log('Trades : Gagnes / Perdus / Total', this.winTrades.length, this.loseTrades.length, this.winTrades.length + this.loseTrades.length);
       console.log('R:R target', rr);
-      console.log('Total R:R', this.round(this.loseTrades.reduce((a, b) => a + b, 0) + this.winTrades.reduce((a, b) => a + b, 0), 2));
-      console.log('Avg R:R', this.round(this.allTrades.reduce((a, b) => a + b, 0) / this.allTrades.length, 2));
-      console.log('Winrate ' + this.round((this.winTrades.length / (this.loseTrades.length + this.winTrades.length)) * 100, 2) + '%');
+      console.log('Total R:R', this.utils.round(this.loseTrades.reduce((a, b) => a + b, 0) + this.winTrades.reduce((a, b) => a + b, 0), 2));
+      console.log('Avg R:R', this.utils.round(this.allTrades.reduce((a, b) => a + b, 0) / this.allTrades.length, 2));
+      console.log('Winrate ' + this.utils.round((this.winTrades.length / (this.loseTrades.length + this.winTrades.length)) * 100, 2) + '%');
       console.log(this.allTrades);
     }
 
@@ -81,6 +84,9 @@ export class AppComponent extends Utils implements OnInit {
   }
 
 
+  /**
+   * Parse et push les donnees CSV.
+   */
   getDataFromFile(devise: string): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       this.http.get('assets/' + devise, { responseType: 'text' }).subscribe(
@@ -108,19 +114,22 @@ export class AppComponent extends Utils implements OnInit {
   }
 
 
+  /**
+   * Boucle principale avec itération de chaque bougie.
+   */
   runBacktest(targetRR: number): void {
     let entryPrice: any;
     let initialStopLoss: any;
     let updatedStopLoss: any;
     let takeProfit: any;
     let longTimeMarker: any;
-    this.haData = this.setHeikenAshiData(this.data); // promise ?
+    this.haData = this.utils.setHeikenAshiData(this.data); // promise ?
     let inLong = false;
-    const isTrailingStopLoss = false;
+    const isTrailingStopLoss = true;
     const isFixedTakeProfitAndTrailingStopLoss = false;
     const isFixedTakeProfitAndStopLoss = false;
     const isFixedTakeProfitAndBreakEvenStopLoss = false;
-    const isHeikenAshi = true;
+    const isHeikenAshi = false;
 
     for (let i = 10; i < this.data.length; i++) {       // for (let i = 3989; i < 4101; i++) {
       if (i === (this.data.length - 1)) {
@@ -130,24 +139,24 @@ export class AppComponent extends Utils implements OnInit {
       let rr: number;
       if (inLong) {
         if (isFixedTakeProfitAndStopLoss) {
-          rr = this.getFixedTakeProfitAndStopLoss(i, entryPrice, initialStopLoss, takeProfit);
+          rr = this.exService.getFixedTakeProfitAndStopLoss(this.data, i, entryPrice, initialStopLoss, takeProfit);
         } else if (isFixedTakeProfitAndBreakEvenStopLoss) {
-          rr = this.getFixedTakeProfitpAndBreakEvenStopLoss(i, entryPrice, initialStopLoss, updatedStopLoss, takeProfit, targetRR);
+          rr = this.exService.getFixedTakeProfitpAndBreakEvenStopLoss(this.data, i, entryPrice, initialStopLoss, updatedStopLoss, takeProfit, targetRR);
         } else if (isTrailingStopLoss) {
-          updatedStopLoss = this.updateStopLoss(i, entryPrice, initialStopLoss, updatedStopLoss, targetRR);
-          rr = this.getTrailingStopLoss(i, entryPrice, initialStopLoss, updatedStopLoss);
+          updatedStopLoss = this.exService.updateStopLoss(this.data, i, entryPrice, initialStopLoss, updatedStopLoss, targetRR);
+          rr = this.exService.getTrailingStopLoss(this.data, i, entryPrice, initialStopLoss, updatedStopLoss);
         } else if (isFixedTakeProfitAndTrailingStopLoss) {
-          updatedStopLoss = this.updateStopLoss(i, entryPrice, initialStopLoss, updatedStopLoss, 0.7);
-          rr = this.getFixeTakeProfitAndTrailingStopLoss(i, entryPrice, initialStopLoss, updatedStopLoss, takeProfit);
+          updatedStopLoss = this.exService.updateStopLoss(this.data, i, entryPrice, initialStopLoss, updatedStopLoss, 0.7);
+          rr = this.exService.getFixeTakeProfitAndTrailingStopLoss(this.data, i, entryPrice, initialStopLoss, updatedStopLoss, takeProfit);
         } else if (isHeikenAshi) {
-          rr = this.getHeikenAshi(i, entryPrice, initialStopLoss);
+          rr = this.exService.getHeikenAshi(this.haData, this.data, i, entryPrice, initialStopLoss);
         }
       }
 
       if (rr !== undefined) {
         inLong = false;
         this.allTrades.push(rr);
-        longTimeMarker.end = this.date(i, 0);
+        longTimeMarker.end = this.date(this.data, i, 0);
         this.timeMarkerArray.push(longTimeMarker);
 
         if (rr >= 0) {
@@ -158,13 +167,13 @@ export class AppComponent extends Utils implements OnInit {
       }
 
       if (!inLong) {
-        const res = this.strategy_LSD_Long(i);
+        const res = this.esService.strategy_LSD_Long(this.data, i);
         if (res.startTrade) {
           inLong = true;
           entryPrice = res.entryPrice;
           initialStopLoss = updatedStopLoss = res.stopLoss;
-          takeProfit = this.round(entryPrice + (entryPrice - initialStopLoss) * targetRR, 5);
-          longTimeMarker = this.setLongTimeMarker(i);
+          takeProfit = this.utils.round(entryPrice + (entryPrice - initialStopLoss) * targetRR, 5);
+          longTimeMarker = this.utils.setLongTimeMarker(this.data, i);
 
           if (this.logEnable) {
             console.log('---');
@@ -173,7 +182,7 @@ export class AppComponent extends Utils implements OnInit {
             console.log('Candle number', i);
             console.log('entryPrice', entryPrice);
             console.log('init stopLoss', initialStopLoss);
-            console.log('takeProfit', this.round(takeProfit, 5));
+            console.log('takeProfit', this.utils.round(takeProfit, 5));
           }
         }
       }
@@ -182,301 +191,8 @@ export class AppComponent extends Utils implements OnInit {
 
 
   /**
-   *
-   *
-   * * * * STRATEGIES D'ENTREE * * * *
-   *
+   * Initiation des propriétés du graphique.
    */
-
-  strategy_test(i: number): boolean {
-    return this.close(i, 1) > this.open(i, 1) && this.close(i, 0) > this.open(i, 0);
-  }
-
-
-  strategy_LSD_Long(i: number): any {
-    const lookback = 3;
-    const swingHigh1 = this.highest(i - 1, 'high', lookback);
-    const swingHigh2 = this.highest(i - 2, 'high', lookback);
-    const swingLow1 = this.lowest(i - 1, 'low', lookback);
-    const swingLow2 = this.lowest(i - 2, 'low', lookback);
-    const smallRange1 = (swingHigh1 - swingLow1) < 0.005;
-    const smallRange2 = (swingHigh2 - swingLow2) < 0.01;
-    const liquidityPips = 0; // (swingHigh1 - swingLow1) / 5;
-    const smallerLow1 = this.low(i, 3) > this.low(i, 2) && this.low(i, 2) > this.low(i, 1);
-    const smallerLow2 = this.low(i, 4) > this.low(i, 3) && this.low(i, 3) > this.low(i, 2);
-
-    const liquidityLow_OneCandle = !smallerLow1 && this.isUp(i, 0) && (swingLow1 - this.low(i, 0)) > liquidityPips;
-    const liquidityLow_TwoCandlesDownUp = !smallerLow2 && smallRange2 && !this.isUp(i, 1) && this.isUp(i, 0) && (swingLow2 - this.low(i, 1)) > liquidityPips;
-    const liquidityLow_TwoCandlesUp = !smallerLow2 && smallRange2 && this.isUp(i, 1) && (swingLow2 - this.low(i, 1)) > liquidityPips && this.isUp(i, 0);
-    const breakoutUp = this.close(i, 0) > swingHigh1;
-
-    // Si TwoCandle alors SL en dessous du swinglow ou de la -1 ?
-    // Si TwoCandle, smallRange doit prendre en compte la -1 ?  01 Feb 2013 en 1H
-    /*if (this.date(i, 0) === '2013-04-03 00:00') {
-      console.log("Candle", this.data[i])
-      console.log("Candle1", this.data[i-1])
-      console.log("swinglow1", swingLow1);
-      console.log("this.isUp(i, 1)", this.isUp(i, 1))
-      console.log("this.isUp(i, 0)", this.isUp(i, 0))
-      console.log("(swingLow1 - this.low(i, 1)) > liquidityPips", (swingLow1 - this.low(i, 1)) > liquidityPips)
-    }*/
-
-    const stopLossVar = (liquidityLow_TwoCandlesDownUp || liquidityLow_TwoCandlesUp) ? swingLow2 : liquidityLow_OneCandle ? swingLow1 : NaN;
-
-    return {
-      startTrade: (liquidityLow_OneCandle || liquidityLow_TwoCandlesDownUp || liquidityLow_TwoCandlesUp) && breakoutUp,
-      stopLoss: stopLossVar,
-      entryPrice: swingHigh1
-    }
-  }
-
-  /**
-   *
-   * * * * TAKE PROFIT AND STOP LOSS STRATEGIES * * * *
-   *  
-   */
-
-  getFixedTakeProfitAndStopLoss(i: number, entryPrice: number, initialStopLoss: number, takeProfit: number): number {
-    let result: number;
-
-    if (this.low(i, 0) <= initialStopLoss) {
-      result = -1;
-      this.logEnable ? console.log('SL', this.data[i]) : NaN;
-    } else if (this.high(i, 0) >= takeProfit) {
-      result = this.getRiskRewardTP(entryPrice, initialStopLoss, takeProfit);
-      this.logEnable ? console.log('TP', this.data[i]) : NaN;
-    }
-
-    return result;
-  }
-
-
-  getFixedTakeProfitpAndBreakEvenStopLoss(i: number, entryPrice: number, initialStopLoss: number, updatedStopLoss: number, takeProfit: number, targetRR: number): number {
-    let result: number;
-    const minTarget = 2;
-    const step1 = entryPrice + (entryPrice - initialStopLoss) * minTarget;
-
-    if (updatedStopLoss < entryPrice && this.high(i, 0) >= step1 && targetRR > minTarget) {
-      updatedStopLoss = entryPrice;
-    }
-
-    if (this.high(i, 0) >= takeProfit) {
-      result = this.getRiskRewardTP(entryPrice, initialStopLoss, takeProfit);
-      this.logEnable ? console.log('TP', this.data[i]) : NaN;
-    } else if (this.low(i, 0) <= updatedStopLoss && updatedStopLoss === entryPrice) {
-      result = 0;
-      this.logEnable ? console.log('BE', this.data[i]) : NaN;
-    } else if (this.low(i, 0) <= initialStopLoss) {
-      result = -1;
-      this.logEnable ? console.log('SL', this.data[i]) : NaN;
-    }
-
-    return result;
-  }
-
-
-  getTrailingStopLoss(i: number, entryPrice: number, initialStopLoss: number, updatedStopLoss: number): number {
-    let result: number;
-
-    if (this.low(i, 0) <= updatedStopLoss) {
-      result = this.getRiskRewardSL(updatedStopLoss, entryPrice, initialStopLoss);
-      this.logEnable ? console.log('SL', this.data[i]) : NaN;
-    }
-
-    return result;
-  }
-
-
-  getFixeTakeProfitAndTrailingStopLoss(i: number, entryPrice: number, initialStopLoss: number, updatedStopLoss: number, takeProfit: number): number {
-    let result: number;
-
-    if (this.high(i, 0) >= takeProfit) {
-      result = this.getRiskRewardTP(entryPrice, initialStopLoss, takeProfit);
-      this.logEnable ? console.log('TP', this.data[i]) : NaN;
-    } else if (this.low(i, 0) <= updatedStopLoss) {
-      result = this.getRiskRewardSL(updatedStopLoss, entryPrice, initialStopLoss);
-      this.logEnable ? console.log('SL', this.data[i]) : NaN;
-    }
-
-    return result;
-  }
-
-
-  getHeikenAshi(i: number, entryPrice: number, initialStopLoss: number): number {
-    let result: number;
-    const bull1 = (this.haData[i - 1].close > this.haData[i - 1].open) ? true : false;
-    const bear = (this.haData[i].close < this.haData[i].open) ? true : false;
-
-    if (this.low(i, 0) <= initialStopLoss) {
-      result = -1;
-    } else if (bull1 && bear) {
-      result = this.getRiskRewardTP(entryPrice, initialStopLoss, this.close(i, 0));
-    }
-
-    return result;
-  }
-
-
-  updateStopLoss(i: number, entryPrice: number, initialStopLoss: number, updatedStopLoss: number, trailingNumber: number): number {
-    if (trailingNumber > 1) {
-      console.error('trailingNumber too big');
-    }
-
-    const step1 = entryPrice + (entryPrice - initialStopLoss) * 2;
-    const step2 = entryPrice + (entryPrice - initialStopLoss) * 3;
-
-    if (this.high(i, 0) >= step1 && updatedStopLoss < entryPrice) {
-      updatedStopLoss = entryPrice;
-      this.logEnable ? console.log('To BE', this.date(i, 0)) : NaN;
-    }
-
-    if (this.high(i, 0) >= step2 && (entryPrice + (this.high(i, 0) - entryPrice) * trailingNumber) > updatedStopLoss) {
-      updatedStopLoss = entryPrice + (this.high(i, 0) - entryPrice) * trailingNumber;
-      this.logEnable ? console.log('Trailing', this.date(i, 0)) : NaN;
-    }
-
-    return updatedStopLoss;
-  }
-
-
-  getRiskRewardSL(updatedStopLoss: number, entryPrice: number, initialStopLoss: number): number {
-    return this.round((updatedStopLoss - entryPrice) / (entryPrice - initialStopLoss), 2);
-  }
-
-  getRiskRewardTP(entryPrice: number, initialStopLoss: number, takeProfit: number): number {
-    return this.round((takeProfit - entryPrice) / (entryPrice - initialStopLoss), 2);
-  }
-
-
-  /**
-   * Retourne la valeur maximale en fonction de la source et de lookback
-   */
-  highest(index: number, source: string, lookback: number): number {
-    let max: number;
-
-    for (let k = 0; k < lookback; k++) {
-      if (k === 0) {
-        max = this.data[index - k][source];
-      }
-
-      if (this.data[index - k][source] > max) {
-        max = this.data[index - k][source];
-      }
-    }
-    return max;
-  }
-
-
-  /**
-   * Retourne la valeur minimale en fonction de la source et de lookback
-   */
-  lowest(index: number, source: string, lookback: number): number {
-    let min: number;
-
-    for (let k = 0; k < lookback; k++) {
-      if (k === 0) {
-        min = this.data[index - k][source];
-      }
-
-      if (this.data[index - k][source] < min) {
-        min = this.data[index - k][source];
-      }
-    }
-    return min;
-  }
-
-
-  isUp(index: number, lookback: number): boolean {
-    return (this.data[index - lookback].close > this.data[index - lookback].open);
-  }
-
-  open(index: number, lookback: number): number {
-    return this.data[index - lookback].open;
-  }
-
-  close(index: number, lookback: number): number {
-    return this.data[index - lookback].close;
-  }
-
-  high(index: number, lookback: number): number {
-    return this.data[index - lookback].high;
-  }
-
-  low(index: number, lookback: number): number {
-    return this.data[index - lookback].low;
-  }
-
-  date(index: number, lookback: number): string {
-    return this.data[index - lookback].date;
-  }
-
-  setHeikenAshiData(source: any): any {
-    const result = [];
-
-    for (let j = 0; j < source.length; j++) {
-      if (j === 0) {
-        result.push({
-          close: this.round((source[j].open + source[j].high + source[j].low + source[j].close) / 4, 5),
-          open: this.round((source[j].open + source[j].close) / 2, 5),
-          low: source[j].low,
-          high: source[j].high
-        });
-      } else {
-        const haCloseVar = (source[j].open + source[j].high + source[j].low + source[j].close) / 4;
-        const haOpenVar = (result[result.length - 1].open + result[result.length - 1].close) / 2;
-        result.push({
-          close: this.round(haCloseVar, 5),
-          open: this.round(haOpenVar, 5),
-          low: this.round(Math.min(source[j].low, Math.max(haOpenVar, haCloseVar)), 5),
-          high: this.round(Math.max(source[j].high, Math.max(haOpenVar, haCloseVar)), 5)
-        });
-      }
-    }
-    return result;
-  }
-
-
-
-  haClose(i: number): number {
-    return this.round((this.open(i, 0) + this.high(i, 0) + this.low(i, 0) + this.close(i, 0)) / 4, 5);
-  }
-
-  haOpen(i: number): number {
-    return this.round((this.open(i, 1) + this.close(i, 1)) / 2, 5);
-  }
-
-  haHigh(i: number): number {
-    return Math.max(this.high(i, 0), Math.max(this.haOpen(i), this.haClose(i)));
-  }
-
-  haLow(i: number): number {
-    return Math.min(this.low(i, 0), Math.max(this.haOpen(i), this.haClose(i)));
-  }
-
-  /**
-   * Arrondi un nombre avec une certaine précision.
-   */
-  round(value: number, precision: number): number {
-    const multiplier = Math.pow(10, precision || 0);
-    return Math.round(value * multiplier) / multiplier;
-  }
-
-
-  setLongTimeMarker(i: number): any {
-    return {
-      start: this.date(i, 0),
-      end: '',
-      label: 'Long',
-      timeFormat: '%Y-%m-%d %H:%M',
-      type: 'full',
-      style: {
-        marker: {
-          fill: '#56ba49'
-        }
-      }
-    };
-  }
-
   initGraphProperties(): void {
     this.type = 'timeseries';
     this.width = '100%';
