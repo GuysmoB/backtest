@@ -13,7 +13,6 @@ import * as Charts from 'fusioncharts/fusioncharts.charts';
 import * as FusionTheme from 'fusioncharts/themes/fusioncharts.theme.fusion';
 import * as TimeSeries from 'fusioncharts/fusioncharts.timeseries';
 import * as Candy from 'fusioncharts/themes/fusioncharts.theme.candy';
-import { StockChartAllModule, RangeNavigatorAllModule, ChartAllModule } from '@syncfusion/ej2-angular-charts';
 
 FusionChartsModule.fcRoot(FusionCharts, Charts, FusionTheme, TimeSeries, Candy);
 
@@ -25,7 +24,6 @@ FusionChartsModule.fcRoot(FusionCharts, Charts, FusionTheme, TimeSeries, Candy);
     HttpClientModule,
     BrowserModule,
     FusionChartsModule,
-    StockChartAllModule, RangeNavigatorAllModule, ChartAllModule,
   ],
   providers: [GraphService, EntryStrategiesService, UtilsService],
   bootstrap: [AppComponent]

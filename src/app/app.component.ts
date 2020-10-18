@@ -11,6 +11,7 @@ import * as FusionCharts from 'fusioncharts';
 // https://www.fusioncharts.com/dev/fusiontime/getting-started/how-fusion-time-works
 // https://stackblitz.com/run?file=indicator-data.ts
 // https://quantiacs.com/Blog/Intro-to-Algorithmic-Trading-with-Heikin-Ashi.aspx
+// https://medium.com/automated-trading/how-to-calculate-and-analyze-relative-strength-index-rsi-using-python-94420d80a364
 
 @Component({
   selector: 'app-root',
@@ -25,20 +26,23 @@ export class AppComponent extends CandleAbstract implements OnInit {
    * Intégrés les courbes des R:R gagnés,
    */
 
-  // assetsArray = ['EURGBP60.csv'];
-  assetsArray = ['AUDCHF60.csv', 'EURGBP60.csv', 'EURUSD60.csv'];
+  assetsArray = ['EURGBP60.csv'];
+  //assetsArray = ['AUDCHF60.csv', 'EURGBP60.csv', 'EURUSD60.csv'];
   data = [];
   haData = [];
-  finalData = [];
   winTrades = [];
   loseTrades = [];
   allTrades = [];
   timeMarkerArray = [];
-  dataSource: any;
+  dataSourceCandle: any;
+  dataSourceRisk: any;
+  dataSourceInterest: any;
+  dataFormat: any;
   type: string;
+  typeLine: string;
   width: string;
   height: string;
-  displayChart = false;
+  displayChart = true;
 
   constructor(private http: HttpClient, private graphService: GraphService, private utils: UtilsService, private esService: EntryStrategiesService, private exService: ExitStrategiesService) {
     super();
@@ -49,7 +53,7 @@ export class AppComponent extends CandleAbstract implements OnInit {
    */
   async ngOnInit(): Promise<void> {
     //const rrArray = [4, 5, 6, 7, 8, 9, 10];
-    const rrArray = [0.9];
+    const rrArray = [0.8];
     for (const rr of rrArray) {
       this.winTrades = [];
       this.loseTrades = [];
@@ -69,18 +73,7 @@ export class AppComponent extends CandleAbstract implements OnInit {
       console.log(this.allTrades);
     }
 
-    this.finalData = this.data.map((res) => {
-      return [
-        res.date,
-        res.open,
-        res.high,
-        res.low,
-        res.close,
-        res.volume];
-    });
-    this.initGraphProperties();
-    const fusionTable = new FusionCharts.DataStore().createDataTable(this.finalData, this.graphService.schema);
-    this.dataSource.data = fusionTable;
+    this.initGraphProperties(this.data);
   }
 
 
@@ -193,11 +186,20 @@ export class AppComponent extends CandleAbstract implements OnInit {
   /**
    * Initiation des propriétés du graphique.
    */
-  initGraphProperties(): void {
-    this.type = 'timeseries';
-    this.width = '100%';
-    this.height = '600';
-    this.dataSource = this.graphService.dataSource;
-    this.dataSource.xAxis.timemarker = this.timeMarkerArray;
+  initGraphProperties(data: any): void {
+    const finalData = data.map((res) => {
+      return [res.date, res.open, res.high, res.low, res.close, res.volume];
+    });
+
+    const fusionTable = new FusionCharts.DataStore().createDataTable(finalData, this.graphService.schema);
+    this.dataSourceCandle = this.graphService.dataSource;
+    this.dataSourceCandle.data = fusionTable;
+    this.dataSourceCandle.xAxis.timemarker = this.timeMarkerArray;
+
+    this.dataSourceRisk = this.graphService.dataRisk;
+    this.dataSourceRisk.data = this.utils.formatDataForGraphLine(this.allTrades);
+
+    this.dataSourceInterest = this.graphService.dataInterest;
+    this.dataSourceInterest.data = this.utils.composedInterest(5000, 1, this.allTrades);
   }
 }

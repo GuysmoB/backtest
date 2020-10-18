@@ -57,6 +57,7 @@ export class UtilsService extends CandleAbstract {
     return Math.round(value * multiplier) / multiplier;
   }
 
+
   /**
    * Retourne l'équivalent HeikenAshi
    */
@@ -89,15 +90,14 @@ export class UtilsService extends CandleAbstract {
   /**
    * Permet de retourner le R:R
    */
-  getRiskRewardSL(updatedStopLoss: number, entryPrice: number, initialStopLoss: number): number {
-    return this.round((updatedStopLoss - entryPrice) / (entryPrice - initialStopLoss), 2);
-  }
-
-  getRiskRewardTP(entryPrice: number, initialStopLoss: number, takeProfit: number): number {
-    return this.round((takeProfit - entryPrice) / (entryPrice - initialStopLoss), 2);
+  getRiskReward(entryPrice: number, initialStopLoss: number, closedPrice: number): number {
+    return this.round((closedPrice - entryPrice) / (entryPrice - initialStopLoss), 2);
   }
 
 
+  /**
+   * Set les timemarker puis indiquer la fin des trades sur le graph
+   */
   setLongTimeMarker(data: any, i: number): any {
     return {
       start: this.date(data, i, 0),
@@ -113,4 +113,41 @@ export class UtilsService extends CandleAbstract {
     };
   }
 
+
+  /**
+   * Retourne un tableau avec la somme des R:R pour le graph line
+   */
+  formatDataForGraphLine(data: any): any {
+    const result = [];
+
+    for (let i = 0; i < data.length; i++) {
+      if (result.length === 0) {
+        result.push({ label: i, value: data[i] });
+      } else {
+        const toAdd = result[result.length - 1].value;
+        result.push({ label: i, value: data[i] + toAdd });
+      }
+    }
+    return result;
+  }
+
+
+  composedInterest(startingCash: number, prRisk: number, allTrades: any): any {
+    const result = [];
+    let cash: number;
+    let moneyRisk: number;
+
+    if (!cash) {
+      cash = startingCash;
+    }
+
+    for (let i = 0; i < allTrades.length; i++) {
+      moneyRisk = cash * (prRisk / 100);
+      const rr = allTrades[i];
+      cash += rr * moneyRisk;
+      result.push({ label: i, value: this.round(cash, 2) });
+    }
+
+    return result;
+  }
 }

@@ -1,4 +1,14 @@
 <div *ngIf="displayChart && data.length > 0">
-    <fusioncharts [type]="type" [width]="width" [height]="height" [dataSource]="dataSource">
+    <fusioncharts [type]="'timeseries'" [width]="'100%'" [height]="600" [dataSource]="dataSourceCandle">
     </fusioncharts>
+</div>
+<div *ngIf="dataSourceRisk">
+    <fusioncharts [width]="800" [height]="400" [type]="'line'" [dataFormat]="'json'" [dataSource]="dataSourceRisk">
+    </fusioncharts>
+
+</div>
+<div *ngIf="dataSourceInterest">
+    <fusioncharts [width]="800" [height]="400" [type]="'line'" [dataFormat]="'json'" [dataSource]="dataSourceInterest">
+    </fusioncharts>
+
 </div>

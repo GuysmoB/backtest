@@ -65,5 +65,30 @@ export class GraphService {
   };
 
 
+
+  dataRisk = {
+    chart: {
+      caption: 'Gains en R:R',
+      yaxisname: 'R:R',
+      rotatelabels: '1',
+      setadaptiveymin: '1',
+      theme: 'fusion',
+      drawAnchors: '0'
+    },
+    data: []
+  };
+
+  dataInterest = {
+    chart: {
+      caption: 'Intérêts composés',
+      yaxisname: '$',
+      rotatelabels: '1',
+      setadaptiveymin: '1',
+      theme: 'fusion',
+      drawAnchors: '0',
+    },
+    data: []
+  };
+
   constructor() { }
 }

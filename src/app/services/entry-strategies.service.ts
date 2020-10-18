@@ -11,8 +11,12 @@ export class EntryStrategiesService extends CandleAbstract {
     super();
   }
 
-  strategy_test(data: any, i: number): boolean {
-    return this.close(data, i, 1) > this.open(data, i, 1) && this.close(data, i, 0) > this.open(data, i, 0);
+  strategy_test(data: any, i: number): any {
+    return {
+      startTrade: this.close(data, i, 1) > this.open(data, i, 1) && this.close(data, i, 0) > this.open(data, i, 0),
+      stopLoss: this.low(data, i, 1),
+      entryPrice: this.close(data, i, 0)
+    };
   }
 
 

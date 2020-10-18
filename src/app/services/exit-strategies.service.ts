@@ -19,7 +19,7 @@ export class ExitStrategiesService extends CandleAbstract {
       result = -1;
       this.logEnable ? console.log('SL', data[i]) : NaN;
     } else if (this.high(data, i, 0) >= takeProfit) {
-      result = this.utils.getRiskRewardTP(entryPrice, initialStopLoss, takeProfit);
+      result = this.utils.getRiskReward(entryPrice, initialStopLoss, takeProfit);
       this.logEnable ? console.log('TP', data[i]) : NaN;
     }
 
@@ -37,7 +37,7 @@ export class ExitStrategiesService extends CandleAbstract {
     }
 
     if (this.high(data, i, 0) >= takeProfit) {
-      result = this.utils.getRiskRewardTP(entryPrice, initialStopLoss, takeProfit);
+      result = this.utils.getRiskReward(entryPrice, initialStopLoss, takeProfit);
       this.logEnable ? console.log('TP', data[i]) : NaN;
     } else if (this.low(data, i, 0) <= updatedStopLoss && updatedStopLoss === entryPrice) {
       result = 0;
@@ -55,7 +55,7 @@ export class ExitStrategiesService extends CandleAbstract {
     let result: number;
 
     if (this.low(data, i, 0) <= updatedStopLoss) {
-      result = this.utils.getRiskRewardSL(updatedStopLoss, entryPrice, initialStopLoss);
+      result = this.utils.getRiskReward(entryPrice, initialStopLoss, updatedStopLoss);
       this.logEnable ? console.log('SL', data[i]) : NaN;
     }
 
@@ -67,10 +67,10 @@ export class ExitStrategiesService extends CandleAbstract {
     let result: number;
 
     if (this.high(data, i, 0) >= takeProfit) {
-      result = this.utils.getRiskRewardTP(entryPrice, initialStopLoss, takeProfit);
+      result = this.utils.getRiskReward(entryPrice, initialStopLoss, takeProfit);
       this.logEnable ? console.log('TP', data[i]) : NaN;
     } else if (this.low(data, i, 0) <= updatedStopLoss) {
-      result = this.utils.getRiskRewardSL(updatedStopLoss, entryPrice, initialStopLoss);
+      result = this.utils.getRiskReward(entryPrice, initialStopLoss, updatedStopLoss);
       this.logEnable ? console.log('SL', data[i]) : NaN;
     }
 
@@ -86,7 +86,7 @@ export class ExitStrategiesService extends CandleAbstract {
     if (this.low(data, i, 0) <= initialStopLoss) {
       result = -1;
     } else if (bull1 && bear) {
-      result = this.utils.getRiskRewardTP(entryPrice, initialStopLoss, this.close(data, i, 0));
+      result = this.utils.getRiskReward(entryPrice, initialStopLoss, this.close(data, i, 0));
     }
 
     return result;
