@@ -2,12 +2,12 @@
     <fusioncharts [type]="'timeseries'" [width]="'100%'" [height]="600" [dataSource]="dataSourceCandle">
     </fusioncharts>
 </div>
-<div *ngIf="dataSourceRisk">
+<div *ngIf="displayChart && dataSourceRisk">
     <fusioncharts [width]="800" [height]="400" [type]="'line'" [dataFormat]="'json'" [dataSource]="dataSourceRisk">
     </fusioncharts>
 
 </div>
-<div *ngIf="dataSourceInterest">
+<div *ngIf="displayChart && dataSourceInterest">
     <fusioncharts [width]="800" [height]="400" [type]="'line'" [dataFormat]="'json'" [dataSource]="dataSourceInterest">
     </fusioncharts>
 

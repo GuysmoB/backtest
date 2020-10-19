@@ -14,6 +14,8 @@ import * as FusionTheme from 'fusioncharts/themes/fusioncharts.theme.fusion';
 import * as TimeSeries from 'fusioncharts/fusioncharts.timeseries';
 import * as Candy from 'fusioncharts/themes/fusioncharts.theme.candy';
 
+
+
 FusionChartsModule.fcRoot(FusionCharts, Charts, FusionTheme, TimeSeries, Candy);
 
 @NgModule({

@@ -1,4 +1,4 @@
-import { ExitStrategiesService } from './services/exit-strategies.service';
+import { ExitStrategiesService } from './services/exit-strategies.service'; 
 import { EntryStrategiesService } from './services/entry-strategies.service';
 import { UtilsService } from './services/utils.service';
 import { GraphService } from './services/graph.service';
@@ -26,7 +26,7 @@ export class AppComponent extends CandleAbstract implements OnInit {
    * Intégrés les courbes des R:R gagnés,
    */
 
-  assetsArray = ['EURGBP60.csv'];
+  assetsArray = ['EURUSD60.csv'];
   //assetsArray = ['AUDCHF60.csv', 'EURGBP60.csv', 'EURUSD60.csv'];
   data = [];
   haData = [];
@@ -51,10 +51,10 @@ export class AppComponent extends CandleAbstract implements OnInit {
   /**
    * Initialisation
    */
-  async ngOnInit(): Promise<void> {
+  async ngOnInit(): Promise<void> {    
     //const rrArray = [4, 5, 6, 7, 8, 9, 10];
-    const rrArray = [0.8];
-    for (const rr of rrArray) {
+    const rrArray = [0.8];  
+    for (const j of rrArray) { // for (let j = 0; j < 200; j++) {   
       this.winTrades = [];
       this.loseTrades = [];
       this.allTrades = [];
@@ -62,11 +62,11 @@ export class AppComponent extends CandleAbstract implements OnInit {
       for (const element of this.assetsArray) {
         this.data = [];
         await this.getDataFromFile(element);
-        this.runBacktest(rr);
+        this.runBacktest(j);
       }
       console.log('-------------');
       console.log('Trades : Gagnes / Perdus / Total', this.winTrades.length, this.loseTrades.length, this.winTrades.length + this.loseTrades.length);
-      console.log('R:R target', rr);
+      console.log('R:R target', j);
       console.log('Total R:R', this.utils.round(this.loseTrades.reduce((a, b) => a + b, 0) + this.winTrades.reduce((a, b) => a + b, 0), 2));
       console.log('Avg R:R', this.utils.round(this.allTrades.reduce((a, b) => a + b, 0) / this.allTrades.length, 2));
       console.log('Winrate ' + this.utils.round((this.winTrades.length / (this.loseTrades.length + this.winTrades.length)) * 100, 2) + '%');
@@ -110,7 +110,7 @@ export class AppComponent extends CandleAbstract implements OnInit {
   /**
    * Boucle principale avec itération de chaque bougie.
    */
-  runBacktest(targetRR: number): void {
+  runBacktest(arg: number): void {
     let entryPrice: any;
     let initialStopLoss: any;
     let updatedStopLoss: any;
@@ -118,13 +118,13 @@ export class AppComponent extends CandleAbstract implements OnInit {
     let longTimeMarker: any;
     this.haData = this.utils.setHeikenAshiData(this.data); // promise ?
     let inLong = false;
-    const isTrailingStopLoss = true;
+    const isTrailingStopLoss = false;
     const isFixedTakeProfitAndTrailingStopLoss = false;
     const isFixedTakeProfitAndStopLoss = false;
     const isFixedTakeProfitAndBreakEvenStopLoss = false;
-    const isHeikenAshi = false;
+    const isHeikenAshi = true;
 
-    for (let i = 10; i < this.data.length; i++) {       // for (let i = 3989; i < 4101; i++) {
+    for (let i = 10; i < this.data.length; i++) {       // for (let i = 3809; i < 4101; i++) {
       if (i === (this.data.length - 1)) {
         inLong = false;
       }
@@ -134,9 +134,9 @@ export class AppComponent extends CandleAbstract implements OnInit {
         if (isFixedTakeProfitAndStopLoss) {
           rr = this.exService.getFixedTakeProfitAndStopLoss(this.data, i, entryPrice, initialStopLoss, takeProfit);
         } else if (isFixedTakeProfitAndBreakEvenStopLoss) {
-          rr = this.exService.getFixedTakeProfitpAndBreakEvenStopLoss(this.data, i, entryPrice, initialStopLoss, updatedStopLoss, takeProfit, targetRR);
+          rr = this.exService.getFixedTakeProfitpAndBreakEvenStopLoss(this.data, i, entryPrice, initialStopLoss, updatedStopLoss, takeProfit, arg);
         } else if (isTrailingStopLoss) {
-          updatedStopLoss = this.exService.updateStopLoss(this.data, i, entryPrice, initialStopLoss, updatedStopLoss, targetRR);
+          updatedStopLoss = this.exService.updateStopLoss(this.data, i, entryPrice, initialStopLoss, updatedStopLoss, arg);
           rr = this.exService.getTrailingStopLoss(this.data, i, entryPrice, initialStopLoss, updatedStopLoss);
         } else if (isFixedTakeProfitAndTrailingStopLoss) {
           updatedStopLoss = this.exService.updateStopLoss(this.data, i, entryPrice, initialStopLoss, updatedStopLoss, 0.7);
@@ -161,11 +161,11 @@ export class AppComponent extends CandleAbstract implements OnInit {
 
       if (!inLong) {
         const res = this.esService.strategy_LSD_Long(this.data, i);
-        if (res.startTrade) {
+        if (res.startTrade && (this.close(this.data, i, 0) > this.utils.sma(this.data, i, 50))) {
           inLong = true;
           entryPrice = res.entryPrice;
           initialStopLoss = updatedStopLoss = res.stopLoss;
-          takeProfit = this.utils.round(entryPrice + (entryPrice - initialStopLoss) * targetRR, 5);
+          takeProfit = this.utils.round(entryPrice + (entryPrice - initialStopLoss) * arg, 5);
           longTimeMarker = this.utils.setLongTimeMarker(this.data, i);
 
           if (this.logEnable) {

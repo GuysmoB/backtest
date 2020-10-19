@@ -150,4 +150,20 @@ export class UtilsService extends CandleAbstract {
 
     return result;
   }
+
+
+  sma(data: any, index: number, periode: number): number {
+    const result = [];
+    const dataStart = index - periode;
+
+    if (dataStart > 0) {
+      for (let i = dataStart; i < index; i++) {
+        result.push(data[i].close);
+      }
+      return this.round(result.reduce((a, b) => a + b, 0) / result.length, 5);
+    } else {
+      return 0;
+    }
+    
+  }
 }
