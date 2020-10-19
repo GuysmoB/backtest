@@ -102,7 +102,7 @@ export class AppComponent extends CandleAbstract implements OnInit {
           console.log(error);
           reject(error);
         }
-      );
+      ); 
     });
   }
 
