@@ -37,11 +37,6 @@ export class AppComponent extends CandleAbstract implements OnInit {
   dataSourceCandle: any;
   dataSourceRisk: any;
   dataSourceInterest: any;
-  dataFormat: any;
-  type: string;
-  typeLine: string;
-  width: string;
-  height: string;
   displayChart = true;
 
   constructor(private http: HttpClient, private graphService: GraphService, private utils: UtilsService, private esService: EntryStrategiesService, private exService: ExitStrategiesService) {
@@ -111,13 +106,15 @@ export class AppComponent extends CandleAbstract implements OnInit {
    * Boucle principale avec itération de chaque bougie.
    */
   runBacktest(arg: number): void {
+    let inLong = false;
+    let trigger = [];
     let entryPrice: any;
     let initialStopLoss: any;
     let updatedStopLoss: any;
     let takeProfit: any;
     let longTimeMarker: any;
     this.haData = this.utils.setHeikenAshiData(this.data); // promise ?
-    let inLong = false;
+
     const isTrailingStopLoss = false;
     const isFixedTakeProfitAndTrailingStopLoss = false;
     const isFixedTakeProfitAndStopLoss = false;
@@ -160,10 +157,12 @@ export class AppComponent extends CandleAbstract implements OnInit {
       }
 
       if (!inLong) {
-        const res = this.esService.strategy_LSD_Long(this.data, i);
-        if (res.startTrade && (this.close(this.data, i, 0) > this.utils.sma(this.data, i, 50))) {
+        //const res = this.esService.strategy_LSD_Long(this.data, i);
+        const res = this.esService.strategy_EngulfingRetested_Long(this.data, i, trigger);
+        if (res.startTrade) {
           inLong = true;
           entryPrice = res.entryPrice;
+          trigger = res.trigger;
           initialStopLoss = updatedStopLoss = res.stopLoss;
           takeProfit = this.utils.round(entryPrice + (entryPrice - initialStopLoss) * arg, 5);
           longTimeMarker = this.utils.setLongTimeMarker(this.data, i);

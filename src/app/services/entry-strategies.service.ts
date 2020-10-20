@@ -49,12 +49,54 @@ export class EntryStrategiesService extends CandleAbstract {
     }*/
 
     const stopLossVar = (liquidityLow_TwoCandlesDownUp || liquidityLow_TwoCandlesUp) ? swingLow2 : liquidityLow_OneCandle ? swingLow1 : NaN;
+    const sma = (this.close(data, i, 0) > this.utils.sma(data, i, 50));
 
     return {
-      startTrade: (liquidityLow_OneCandle || liquidityLow_TwoCandlesDownUp || liquidityLow_TwoCandlesUp) && breakoutUp,
+      startTrade: (liquidityLow_OneCandle || liquidityLow_TwoCandlesDownUp || liquidityLow_TwoCandlesUp) && breakoutUp  && sma,
       stopLoss: stopLossVar,
       entryPrice: swingHigh1
     };
   }
 
+  strategy_HA_Long(haData: any, data: any, i: number): any {
+    const lookback = 3;
+    const bullCandle = haData[i].close > haData[i].open && haData[i].open >= haData[i].low;
+    const swingLow = this.utils.lowest(haData, i - 1, 'low', lookback);
+    const sma = (this.close(data, i, 0) > this.utils.sma(data, i, 50));
+
+    return {
+      startTrade: bullCandle && sma,
+      stopLoss: swingLow,
+      entryPrice: this.close(data, i, 0)
+    };
+  }
+
+  strategy_EngulfingRetested_Long(data: any, i: number, trigger: any): any {
+    let retest: boolean;
+    let sl: number;
+    const bullRange = (this.close(data, i, 0) - this.open(data, i, 0)) >= ((this.open(data, i, 1) - this.close(data, i, 1)) * 2);
+    const engulfing = !this.isUp(data, i, 1) && this.isUp(data, i, 0) && bullRange;
+
+    if (trigger.length > 0) {
+      if ((i - trigger[0].time <= 10) && this.low(data, i, 0) <= trigger[0].candle1.high && this.low(data, i, 0) > trigger[0].candle0.low) {
+        retest = true;
+        sl = trigger[0].candle1.low;
+        trigger = [];
+        console.log('retest', data[i])
+      } else if (i - trigger[0].time > 10) {
+        trigger = [];
+        //console.log('timeout', data[i])
+      }
+    } else if (engulfing) {
+      console.log('engulfing', data[i])
+      trigger.push({ time: i, candle1: data[i - 1], candle0: data[i]});
+    }
+
+    return {
+      startTrade: retest,
+      stopLoss: sl,
+      entryPrice: this.close(data, i, 0),
+      trigger: trigger
+    };
+  }
 }
