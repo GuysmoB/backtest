@@ -1,4 +1,4 @@
-import { ExitStrategiesService } from './services/exit-strategies.service'; 
+import { ExitStrategiesService } from './services/exit-strategies.service';
 import { EntryStrategiesService } from './services/entry-strategies.service';
 import { UtilsService } from './services/utils.service';
 import { GraphService } from './services/graph.service';
@@ -46,9 +46,9 @@ export class AppComponent extends CandleAbstract implements OnInit {
   /**
    * Initialisation
    */
-  async ngOnInit(): Promise<void> {    
+  async ngOnInit(): Promise<void> {
     //const rrArray = [4, 5, 6, 7, 8, 9, 10];
-    const rrArray = [0.8];  
+    const rrArray = [0.8];
     for (const j of rrArray) { // for (let j = 0; j < 200; j++) {   
       this.winTrades = [];
       this.loseTrades = [];
@@ -97,7 +97,7 @@ export class AppComponent extends CandleAbstract implements OnInit {
           console.log(error);
           reject(error);
         }
-      ); 
+      );
     });
   }
 
@@ -158,7 +158,7 @@ export class AppComponent extends CandleAbstract implements OnInit {
 
       if (!inLong) {
         //const res = this.esService.strategy_LSD_Long(this.data, i);
-        const res = this.esService.strategy_EngulfingRetested_Long(this.data, i, trigger);
+        const res = this.esService.strategy_test2(this.data, i);
         if (res.startTrade) {
           inLong = true;
           entryPrice = res.entryPrice;

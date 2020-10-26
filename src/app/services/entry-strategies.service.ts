@@ -11,7 +11,7 @@ export class EntryStrategiesService extends CandleAbstract {
     super();
   }
 
-  strategy_test(data: any, i: number): any {
+  strategy_test1(data: any, i: number): any {
     return {
       startTrade: this.close(data, i, 1) > this.open(data, i, 1) && this.close(data, i, 0) > this.open(data, i, 0),
       stopLoss: this.low(data, i, 1),
@@ -19,6 +19,14 @@ export class EntryStrategiesService extends CandleAbstract {
     };
   }
 
+  strategy_test2(data: any, i: number): any {
+    const sma = (this.close(data, i, 0) > this.utils.sma(data, i, 50));
+    return {
+      startTrade: !this.isUp(data, i, 1) && this.low(data, i, 0) < this.low(data, i, 1) && this.close(data, i, 0) > this.high(data, i, 1) && sma,
+      stopLoss: this.low(data, i, 1),
+      entryPrice: this.high(data, i, 1)
+    };
+  }
 
   strategy_LSD_Long(data, i: number): any {
     const lookback = 3;
@@ -52,7 +60,7 @@ export class EntryStrategiesService extends CandleAbstract {
     const sma = (this.close(data, i, 0) > this.utils.sma(data, i, 50));
 
     return {
-      startTrade: (liquidityLow_OneCandle || liquidityLow_TwoCandlesDownUp || liquidityLow_TwoCandlesUp) && breakoutUp  && sma,
+      startTrade: (liquidityLow_OneCandle || liquidityLow_TwoCandlesDownUp || liquidityLow_TwoCandlesUp) && breakoutUp && sma,
       stopLoss: stopLossVar,
       entryPrice: swingHigh1
     };
@@ -89,7 +97,7 @@ export class EntryStrategiesService extends CandleAbstract {
       }
     } else if (engulfing) {
       console.log('engulfing', data[i])
-      trigger.push({ time: i, candle1: data[i - 1], candle0: data[i]});
+      trigger.push({ time: i, candle1: data[i - 1], candle0: data[i] });
     }
 
     return {
