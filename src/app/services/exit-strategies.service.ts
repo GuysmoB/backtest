@@ -15,12 +15,18 @@ export class ExitStrategiesService extends CandleAbstract {
   getFixedTakeProfitAndStopLoss(data: any, i: number, entryPrice: number, initialStopLoss: number, takeProfit: number): number {
     let result: number;
 
-    if (this.low(data, i, 0) <= initialStopLoss) {
-      result = -1;
-      this.logEnable ? console.log('SL', data[i]) : NaN;
-    } else if (this.high(data, i, 0) >= takeProfit) {
+    if (this.high(data, i, 0) >= takeProfit) {
       result = this.utils.getRiskReward(entryPrice, initialStopLoss, takeProfit);
       this.logEnable ? console.log('TP', data[i]) : NaN;
+    }
+
+    if (this.low(data, i, 0) <= initialStopLoss) {
+      if (result) {
+        result = result / 2;
+      } else {
+        result = -1;
+      }
+      this.logEnable ? console.log('SL', data[i]) : NaN;
     }
 
     return result;
@@ -80,13 +86,14 @@ export class ExitStrategiesService extends CandleAbstract {
 
   getHeikenAshi(haData: any, data: any, i: number, entryPrice: number, initialStopLoss: number): number {
     let result: number;
+    const step1 = entryPrice + (entryPrice - initialStopLoss) * 2;
     const bull1 = (haData[i - 1].close > haData[i - 1].open) ? true : false;
     const bear = (haData[i].close < haData[i].open) ? true : false;
 
-    if (this.low(data, i, 0) <= initialStopLoss) {
-      result = -1;
-    } else if (bull1 && bear) {
+    if (this.close(data, i, 0) >= step1 && bull1 && bear) {
       result = this.utils.getRiskReward(entryPrice, initialStopLoss, this.close(data, i, 0));
+    } else if (this.low(data, i, 0) <= initialStopLoss) {
+      result = -1;
     }
 
     return result;

@@ -22,8 +22,6 @@ export class AppComponent extends CandleAbstract implements OnInit {
 
   /**
    * ## TODO ##
-   * interêts composés,
-   * Intégrés les courbes des R:R gagnés,
    */
 
   assetsArray = ['EURUSD60.csv'];
@@ -47,9 +45,9 @@ export class AppComponent extends CandleAbstract implements OnInit {
    * Initialisation
    */
   async ngOnInit(): Promise<void> {
-    //const rrArray = [4, 5, 6, 7, 8, 9, 10];
-    const rrArray = [0.8];
-    for (const j of rrArray) { // for (let j = 0; j < 200; j++) {   
+    //const rrArray = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+    const rrArray = [2];
+    for (const j of rrArray) { // for (let j = 0; j < 30; j++) {
       this.winTrades = [];
       this.loseTrades = [];
       this.allTrades = [];
@@ -87,8 +85,7 @@ export class AppComponent extends CandleAbstract implements OnInit {
               open: parseFloat(element[1]),
               high: parseFloat(element[2]),
               low: parseFloat(element[3]),
-              close: parseFloat(element[4]),
-              volume: parseFloat(element[5])
+              close: parseFloat(element[4])
             });
           }
           resolve();
@@ -114,55 +111,26 @@ export class AppComponent extends CandleAbstract implements OnInit {
     let takeProfit: any;
     let longTimeMarker: any;
     this.haData = this.utils.setHeikenAshiData(this.data); // promise ?
+    const rsiValues = this.utils.rsi(this.data, 14);
 
     const isTrailingStopLoss = false;
     const isFixedTakeProfitAndTrailingStopLoss = false;
-    const isFixedTakeProfitAndStopLoss = false;
+    const isFixedTakeProfitAndStopLoss = true;
     const isFixedTakeProfitAndBreakEvenStopLoss = false;
-    const isHeikenAshi = true;
+    const isHeikenAshi = false;
 
-    for (let i = 10; i < this.data.length; i++) {       // for (let i = 3809; i < 4101; i++) {
+    for (let i = 10; i < this.data.length; i++) {       //for (let i = 41470; i < 41500; i++) {
       if (i === (this.data.length - 1)) {
         inLong = false;
       }
 
-      let rr: number;
-      if (inLong) {
-        if (isFixedTakeProfitAndStopLoss) {
-          rr = this.exService.getFixedTakeProfitAndStopLoss(this.data, i, entryPrice, initialStopLoss, takeProfit);
-        } else if (isFixedTakeProfitAndBreakEvenStopLoss) {
-          rr = this.exService.getFixedTakeProfitpAndBreakEvenStopLoss(this.data, i, entryPrice, initialStopLoss, updatedStopLoss, takeProfit, arg);
-        } else if (isTrailingStopLoss) {
-          updatedStopLoss = this.exService.updateStopLoss(this.data, i, entryPrice, initialStopLoss, updatedStopLoss, arg);
-          rr = this.exService.getTrailingStopLoss(this.data, i, entryPrice, initialStopLoss, updatedStopLoss);
-        } else if (isFixedTakeProfitAndTrailingStopLoss) {
-          updatedStopLoss = this.exService.updateStopLoss(this.data, i, entryPrice, initialStopLoss, updatedStopLoss, 0.7);
-          rr = this.exService.getFixeTakeProfitAndTrailingStopLoss(this.data, i, entryPrice, initialStopLoss, updatedStopLoss, takeProfit);
-        } else if (isHeikenAshi) {
-          rr = this.exService.getHeikenAshi(this.haData, this.data, i, entryPrice, initialStopLoss);
-        }
-      }
-
-      if (rr !== undefined) {
-        inLong = false;
-        this.allTrades.push(rr);
-        longTimeMarker.end = this.date(this.data, i, 0);
-        this.timeMarkerArray.push(longTimeMarker);
-
-        if (rr >= 0) {
-          this.winTrades.push(rr);
-        } else if (rr < 0) {
-          this.loseTrades.push(rr);
-        }
-      }
-
       if (!inLong) {
-        //const res = this.esService.strategy_LSD_Long(this.data, i);
-        const res = this.esService.strategy_test2(this.data, i);
+        const res = this.esService.strategy_EngulfingRetested_Long(this.data, i, trigger, rsiValues);
+        trigger = res.trigger;
+        //const res = this.esService.strategy_test2(this.data, i);
         if (res.startTrade) {
           inLong = true;
           entryPrice = res.entryPrice;
-          trigger = res.trigger;
           initialStopLoss = updatedStopLoss = res.stopLoss;
           takeProfit = this.utils.round(entryPrice + (entryPrice - initialStopLoss) * arg, 5);
           longTimeMarker = this.utils.setLongTimeMarker(this.data, i);
@@ -175,6 +143,36 @@ export class AppComponent extends CandleAbstract implements OnInit {
             console.log('entryPrice', entryPrice);
             console.log('init stopLoss', initialStopLoss);
             console.log('takeProfit', this.utils.round(takeProfit, 5));
+          }
+        }
+      }
+
+      let rr: number;
+      if (inLong) {
+        if (isFixedTakeProfitAndStopLoss) {
+          rr = this.exService.getFixedTakeProfitAndStopLoss(this.data, i, entryPrice, initialStopLoss, takeProfit);
+        } else if (isFixedTakeProfitAndBreakEvenStopLoss) {
+          rr = this.exService.getFixedTakeProfitpAndBreakEvenStopLoss(this.data, i, entryPrice, initialStopLoss, updatedStopLoss, takeProfit, 2);
+        } else if (isTrailingStopLoss) {
+          updatedStopLoss = this.exService.updateStopLoss(this.data, i, entryPrice, initialStopLoss, updatedStopLoss, arg);
+          rr = this.exService.getTrailingStopLoss(this.data, i, entryPrice, initialStopLoss, updatedStopLoss);
+        } else if (isFixedTakeProfitAndTrailingStopLoss) {
+          updatedStopLoss = this.exService.updateStopLoss(this.data, i, entryPrice, initialStopLoss, updatedStopLoss, 0.7);
+          rr = this.exService.getFixeTakeProfitAndTrailingStopLoss(this.data, i, entryPrice, initialStopLoss, updatedStopLoss, takeProfit);
+        } else if (isHeikenAshi) {
+          rr = this.exService.getHeikenAshi(this.haData, this.data, i, entryPrice, initialStopLoss);
+        }
+
+        if (rr !== undefined) {
+          inLong = false;
+          this.allTrades.push(rr);
+          longTimeMarker.end = this.date(this.data, i, 0);
+          this.timeMarkerArray.push(longTimeMarker);
+
+          if (rr >= 0) {
+            this.winTrades.push(rr);
+          } else if (rr < 0) {
+            this.loseTrades.push(rr);
           }
         }
       }

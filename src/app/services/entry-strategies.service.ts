@@ -2,6 +2,7 @@ import { UtilsService } from './utils.service';
 import { Injectable } from '@angular/core';
 import { CandleAbstract } from '../abstract/candleAbstract';
 
+
 @Injectable({
   providedIn: 'root'
 })
@@ -79,31 +80,42 @@ export class EntryStrategiesService extends CandleAbstract {
     };
   }
 
-  strategy_EngulfingRetested_Long(data: any, i: number, trigger: any): any {
+  strategy_EngulfingRetested_Long(data: any, i: number, trigger: any, rsiValues: any, arg?: number): any {
     let retest: boolean;
+    let entryPrice: number;
     let sl: number;
-    const bullRange = (this.close(data, i, 0) - this.open(data, i, 0)) >= ((this.open(data, i, 1) - this.close(data, i, 1)) * 2);
-    const engulfing = !this.isUp(data, i, 1) && this.isUp(data, i, 0) && bullRange;
+    const maxTimeSpent = 20;
+    const smaRsi = this.utils.smaRsi(rsiValues, i, 10);
+    const smaRsiold = this.utils.smaRsi(rsiValues, i - 2, 10);
+    const candle0Size = Math.abs(this.close(data, i, 0) - this.open(data, i, 0));
+    const candle1Size = Math.abs(this.open(data, i, 1) - this.close(data, i, 1));
+
+    const rsi = smaRsi < 70 && smaRsi > smaRsiold;
+    const liquidity = this.low(data, i, 0) < this.low(data, i, 1);
+    const breakoutUp = this.close(data, i, 0) > this.high(data, i, 1);
+    const setup = !this.isUp(data, i, 1) && this.isUp(data, i, 0) && (candle0Size >= candle1Size * 3) && liquidity && breakoutUp;
 
     if (trigger.length > 0) {
-      if ((i - trigger[0].time <= 10) && this.low(data, i, 0) <= trigger[0].candle1.high && this.low(data, i, 0) > trigger[0].candle0.low) {
+      const timeSpent = i - trigger[0].time;
+
+      if (timeSpent <= maxTimeSpent && this.low(data, i, 0) <= trigger[0].candle1.open) {
         retest = true;
         sl = trigger[0].candle1.low;
+        entryPrice = trigger[0].candle1.open;
         trigger = [];
-        console.log('retest', data[i])
-      } else if (i - trigger[0].time > 10) {
+        //console.log('retest', data[i].date);
+      } else if (timeSpent > maxTimeSpent) {
         trigger = [];
-        //console.log('timeout', data[i])
       }
-    } else if (engulfing) {
-      console.log('engulfing', data[i])
+    } else if (setup) {
+      //console.log('engulfing', data[i].date, data[i - 1], data[i]);
       trigger.push({ time: i, candle1: data[i - 1], candle0: data[i] });
     }
 
     return {
       startTrade: retest,
       stopLoss: sl,
-      entryPrice: this.close(data, i, 0),
+      entryPrice: entryPrice,
       trigger: trigger
     };
   }
