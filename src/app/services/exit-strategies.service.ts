@@ -15,18 +15,12 @@ export class ExitStrategiesService extends CandleAbstract {
   getFixedTakeProfitAndStopLoss(data: any, i: number, entryPrice: number, initialStopLoss: number, takeProfit: number): number {
     let result: number;
 
-    if (this.high(data, i, 0) >= takeProfit) {
-      result = this.utils.getRiskReward(entryPrice, initialStopLoss, takeProfit);
-      this.logEnable ? console.log('TP', data[i]) : NaN;
-    }
-
     if (this.low(data, i, 0) <= initialStopLoss) {
-      if (result) {
-        result = result / 2;
-      } else {
-        result = -1;
-      }
       this.logEnable ? console.log('SL', data[i]) : NaN;
+      result = -1;
+    } else if (this.high(data, i, 0) >= takeProfit) {
+      this.logEnable ? console.log('TP', data[i]) : NaN;
+      result = this.utils.getRiskReward(entryPrice, initialStopLoss, takeProfit);
     }
 
     return result;

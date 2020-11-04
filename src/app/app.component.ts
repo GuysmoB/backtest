@@ -1,3 +1,4 @@
+import { IndicatorsService } from './services/indicators.service';
 import { ExitStrategiesService } from './services/exit-strategies.service';
 import { EntryStrategiesService } from './services/entry-strategies.service';
 import { UtilsService } from './services/utils.service';
@@ -6,12 +7,7 @@ import { CandleAbstract } from './abstract/candleAbstract';
 import { HttpClient } from '@angular/common/http';
 import { Component, OnInit } from '@angular/core';
 import * as FusionCharts from 'fusioncharts';
-
-// https://www.fusioncharts.com/dev/fusiontime/fusiontime-attributes
-// https://www.fusioncharts.com/dev/fusiontime/getting-started/how-fusion-time-works
-// https://stackblitz.com/run?file=indicator-data.ts
-// https://quantiacs.com/Blog/Intro-to-Algorithmic-Trading-with-Heikin-Ashi.aspx
-// https://medium.com/automated-trading/how-to-calculate-and-analyze-relative-strength-index-rsi-using-python-94420d80a364
+import { indicatorBollingerBands } from '@d3fc/d3fc-technical-indicator';
 
 @Component({
   selector: 'app-root',
@@ -24,8 +20,8 @@ export class AppComponent extends CandleAbstract implements OnInit {
    * ## TODO ##
    */
 
-  assetsArray = ['EURUSD60.csv'];
-  //assetsArray = ['AUDCHF60.csv', 'EURGBP60.csv', 'EURUSD60.csv'];
+  //assetsArray = ['EURUSD60.csv'];
+  assetsArray = ['AUDCHF60.csv', 'EURGBP60.csv', 'EURUSD60.csv'];
   data = [];
   haData = [];
   winTrades = [];
@@ -37,7 +33,8 @@ export class AppComponent extends CandleAbstract implements OnInit {
   dataSourceInterest: any;
   displayChart = true;
 
-  constructor(private http: HttpClient, private graphService: GraphService, private utils: UtilsService, private esService: EntryStrategiesService, private exService: ExitStrategiesService) {
+  constructor(private http: HttpClient, private graphService: GraphService, private utils: UtilsService,
+    private esService: EntryStrategiesService, private exService: ExitStrategiesService, private indicators: IndicatorsService) {
     super();
   }
 
@@ -111,23 +108,22 @@ export class AppComponent extends CandleAbstract implements OnInit {
     let takeProfit: any;
     let longTimeMarker: any;
     this.haData = this.utils.setHeikenAshiData(this.data); // promise ?
-    const rsiValues = this.utils.rsi(this.data, 14);
-
+    const rsiValues = this.indicators.rsi(this.data, 14);
+    const atrValues = this.indicators.atr(this.data, 10);
     const isTrailingStopLoss = false;
     const isFixedTakeProfitAndTrailingStopLoss = false;
     const isFixedTakeProfitAndStopLoss = true;
     const isFixedTakeProfitAndBreakEvenStopLoss = false;
     const isHeikenAshi = false;
 
-    for (let i = 10; i < this.data.length; i++) {       //for (let i = 41470; i < 41500; i++) {
+    for (let i = 10; i < this.data.length; i++) {       //for (let i = 48000; i < this.data.length; i++) {
       if (i === (this.data.length - 1)) {
         inLong = false;
       }
 
       if (!inLong) {
-        const res = this.esService.strategy_EngulfingRetested_Long(this.data, i, trigger, rsiValues);
+        const res = this.esService.strategy_EngulfingRetested_Long(this.data, i, trigger, atrValues);
         trigger = res.trigger;
-        //const res = this.esService.strategy_test2(this.data, i);
         if (res.startTrade) {
           inLong = true;
           entryPrice = res.entryPrice;
@@ -147,6 +143,12 @@ export class AppComponent extends CandleAbstract implements OnInit {
         }
       }
 
+      /*const sma = this.indicators.sma(this.data, i, 100);
+      if (this.close(this.data, i, 0) > sma) {
+        takeProfit = this.utils.round(entryPrice + (entryPrice - initialStopLoss) * 3, 5);
+      } else {
+        takeProfit = this.utils.round(entryPrice + (entryPrice - initialStopLoss) * 1, 5);
+      }*/
       let rr: number;
       if (inLong) {
         if (isFixedTakeProfitAndStopLoss) {
@@ -169,7 +171,7 @@ export class AppComponent extends CandleAbstract implements OnInit {
           longTimeMarker.end = this.date(this.data, i, 0);
           this.timeMarkerArray.push(longTimeMarker);
 
-          if (rr >= 0) {
+          if (rr > 0) {
             this.winTrades.push(rr);
           } else if (rr < 0) {
             this.loseTrades.push(rr);
