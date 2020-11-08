@@ -115,4 +115,11 @@ export class ExitStrategiesService extends CandleAbstract {
     return updatedStopLoss;
   }
 
+
+  timeExit(data: any, i: number, before: number, entryPrice: number): any {
+    if ((i - before) >= 5) {
+      return this.utils.round((this.close(data, i, 0) - entryPrice) / entryPrice, 5);
+    }
+  }
+
 }

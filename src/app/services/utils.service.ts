@@ -66,20 +66,26 @@ export class UtilsService extends CandleAbstract {
 
     for (let j = 0; j < source.length; j++) {
       if (j === 0) {
+        const $close = this.round((source[j].open + source[j].high + source[j].low + source[j].close) / 4, 5);
+        const $open = this.round((source[j].open + source[j].close) / 2, 5);
         result.push({
-          close: this.round((source[j].open + source[j].high + source[j].low + source[j].close) / 4, 5),
-          open: this.round((source[j].open + source[j].close) / 2, 5),
+          close: $close,
+          open: $open,
           low: source[j].low,
-          high: source[j].high
+          high: source[j].high,
+          bull: $close > $open,
+          bear: $close < $open
         });
       } else {
-        const haCloseVar = (source[j].open + source[j].high + source[j].low + source[j].close) / 4;
-        const haOpenVar = (result[result.length - 1].open + result[result.length - 1].close) / 2;
+        const $close = (source[j].open + source[j].high + source[j].low + source[j].close) / 4;
+        const $open = (result[result.length - 1].open + result[result.length - 1].close) / 2;
         result.push({
-          close: this.round(haCloseVar, 5),
-          open: this.round(haOpenVar, 5),
-          low: this.round(Math.min(source[j].low, Math.max(haOpenVar, haCloseVar)), 5),
-          high: this.round(Math.max(source[j].high, Math.max(haOpenVar, haCloseVar)), 5)
+          close: this.round($close, 5),
+          open: this.round($open, 5),
+          low: this.round(Math.min(source[j].low, Math.max($open, $close)), 5),
+          high: this.round(Math.max(source[j].high, Math.max($open, $close)), 5),
+          bull: $close > $open,
+          bear: $close < $open
         });
       }
     }
