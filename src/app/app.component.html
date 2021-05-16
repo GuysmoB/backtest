@@ -7,7 +7,7 @@
     </fusioncharts>
 
 </div>
-<div *ngIf="displayChart && dataSourceInterest">
+<div *ngIf="dataSourceInterest">
     <fusioncharts [width]="800" [height]="400" [type]="'line'" [dataFormat]="'json'" [dataSource]="dataSourceInterest">
     </fusioncharts>
 

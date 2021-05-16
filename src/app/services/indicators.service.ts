@@ -95,4 +95,27 @@ export class IndicatorsService extends CandleAbstract {
     const emaLoss = this.ema(loss, 2 * window - 1);
     return this.pointwise((a: number, b: number) => 100 - 100 / (1 + a / b), this.ema(gains, 2 * window - 1), this.ema(loss, 2 * window - 1));
   }
+
+  crossNumber(data: any, maData: any, periode: number): number {
+    let nbCross = 0;
+
+    if (maData.length > periode) {
+      for (let i = (maData.length - periode); i < maData.length; i++) {
+        const maPrice = maData[i];
+
+        if (maPrice) {
+          const crossDown = this.close(data, i, 1) > maPrice && this.close(data, i, 0) < maPrice;
+          const crossUp = this.close(data, i, 1) < maPrice && this.close(data, i, 0) > maPrice;
+
+          if (crossUp || crossDown) {
+            nbCross++;
+            //console.log('cross ema price', data[i].date)
+          }
+        }
+      }
+    }
+
+
+    return nbCross;
+  }
 }

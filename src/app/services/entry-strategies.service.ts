@@ -1,3 +1,4 @@
+import { indicatorExponentialMovingAverage } from '@d3fc/d3fc-technical-indicator';
 import { IndicatorsService } from './indicators.service';
 import { UtilsService } from './utils.service';
 import { Injectable } from '@angular/core';
@@ -75,40 +76,34 @@ export class EntryStrategiesService extends CandleAbstract {
 
 
   /**
-   * Identifier une prise de liquidite, le garder en mémoire. Attendre un break
+   * Simple retest d'une engulfing.
    */
   strategy_EngulfingRetested_Long(data: any, i: number, trigger: any, atr: any, arg?: number, arg2?: number): any {
     let retest: boolean;
     let entryPrice: number;
     let sl: number;
-
-    const lookback = 10;
-    const maxTimeSpent = 20;
-    const swingHigh = this.utils.highest(data, i - 1, 'high', lookback);
-    const swingLow = this.utils.lowest(data, i - 1, 'low', lookback);
     const candle0Size = Math.abs(this.close(data, i, 0) - this.open(data, i, 0));
     const candle1Size = Math.abs(this.close(data, i, 1) - this.open(data, i, 1));
 
-    const liquidity = this.low(data, i, 0) < swingLow && ((swingLow - this.low(data, i, 0)) / atr[i]) > 0.1;
-    const breakoutUp = this.close(data, i, 0) > this.high(data, i, 1) /*&& (candle0Size / atr[i]) > 2*/;
-    const setup1 = /*!this.isUp(data, i, 1) &&*/ /*(candle1Size / atr[i]) > arg2 &&*/ this.isUp(data, i, 0) /*&& (candle0Size >= candle1Size * arg) */ && liquidity && breakoutUp;
+    const isHigherHigh = this.high(data, i, 1) < this.high(data, i, 0) && this.high(data, i, 1) < this.high(data, i, 0); // anti gap
+    const isLongEnough1 = candle1Size > atr[i] * 0.1;
+    const setup = !this.isUp(data, i, 1) && isLongEnough1 && this.isUp(data, i, 0) && (candle0Size >= candle1Size * 3) && isHigherHigh;
 
+    if (setup && trigger.length !== 0) {
+      trigger = [];
+    }
 
-    if (setup1) {
-      this.logEnable ? console.log('engulfing', data[i].date, data[i - 1], data[i]) : NaN;
+    if (setup) {
+      this.logEnable ? console.log('engulfing', data[i].date) : NaN;
       trigger = [];
       trigger.push({ time: i, candle1: data[i - 1], candle0: data[i] });
     } else if (trigger.length > 0) {
-      const timeSpent = i - trigger[0].time;
-
-      if (timeSpent <= maxTimeSpent && this.low(data, i, 0) <= trigger[0].candle1.open) {
+      if (this.low(data, i, 0) <= trigger[0].candle1.open) {
         retest = true;
         sl = trigger[0].candle1.low;
         entryPrice = trigger[0].candle1.open;
         trigger = [];
         this.logEnable ? console.log('retest', data[i].date) : NaN;
-      } else if (timeSpent > maxTimeSpent) {
-        trigger = [];
       }
     }
 
@@ -145,10 +140,10 @@ export class EntryStrategiesService extends CandleAbstract {
           lowerLow = true;
         }
       }
-      /*if (lowerLow || (i - liquidity.time) > 2) {
+      if (/*lowerLow ||*/ (i - liquidity.time) > 2) {
         setup = false;
         //console.log('setup with lowerlow', data[i].date)
-      }*/
+      }
     }
 
     if (setup && trigger.length === 0) {
@@ -158,7 +153,7 @@ export class EntryStrategiesService extends CandleAbstract {
     } else if (trigger.length > 0) {
       const timeSpent = i - trigger[0].time;
 
-      if (timeSpent <= maxTimeSpent && this.low(data, i, 0) <= trigger[0].swingHigh) {
+      if (timeSpent <= maxTimeSpent/* && this.low(data, i, 0) <= trigger[0].swingHigh*/) {
         retest = true;
         sl = trigger[0].swingLow;
         entryPrice = trigger[0].swingHigh;
@@ -185,10 +180,8 @@ export class EntryStrategiesService extends CandleAbstract {
     const lookback = 10;
     const $swingHigh = this.utils.highest(data, i - 1, 'high', lookback);
     const $swingLow = this.utils.lowest(data, i - 1, 'low', lookback);
-    const rangeHigh = this.utils.round(this.low(data, i, 0) + atr[i] * 1.5, 5);
+    const rangeHigh = this.utils.round(this.low(data, i, 0) + atr[i] * 3.5, 5);
     const rangeLow = this.low(data, i, 0);
-
-    const candleSize = Math.abs(this.high(data, i, 0) - this.low(data, i, 0));
 
     for (let k = (i - 1); k >= (i - lookback); k--) {
       const candle = data[k];
@@ -206,13 +199,69 @@ export class EntryStrategiesService extends CandleAbstract {
     }
 
     if (brokenLows >= 2) {
-      //console.log('liquidity found !', data[i].date, brokenLows, rangeHigh, rangeLow);
+      console.log('liquidity found !', data[i].date, brokenLows, rangeHigh, rangeLow);
       return {
         time: i,
         swingHigh: $swingHigh,
         swingLow: $swingLow
       };
     }
+  }
+
+  strategy_macd(data: any, i: number, macd: any, atr: any, ema: any): any {
+    try {
+      const localEma = [];
+      /* for (let k = 0; k < i; k++) {
+        localEma.push(ema[k]);
+      } */
+      //const crossNumber = this.indicators.crossNumber(data, localEma, 200);
+
+      const lookback = 10;
+      const swingLow = this.utils.lowest(data, i - 1, 'low', lookback);
+      const candleSize = Math.abs(this.high(data, i, 0) - this.low(data, i, 0));
+
+      const upTrend = this.low(data, i, 0) > ema[i];
+      const macdCrossUp = macd[i - 1].macd < macd[i - 1].signal && macd[i].macd > macd[i].signal;
+      const belowMidLine = macd[i].macd < 0;
+      const candleSizeParam = candleSize < atr[i] * 2;
+
+      if (upTrend && macdCrossUp && belowMidLine && candleSizeParam) {
+        //console.log('crossnumber', crossNumber, data[i].date);
+      }
+
+      return {
+        startTrade: upTrend && macdCrossUp && belowMidLine && candleSizeParam && (this.low(data, i, 0) - ema[i]) > atr[i] * 3,
+        stopLoss: swingLow - atr[i] * 0.5,
+        entryPrice: this.close(data, i, 0),
+        trigger: ''
+      };
+    } catch (error) {
+      console.log(error);
+    }
+  }
+
+
+  strategy_pcy(data: any, i: number, atr: any, emaTrend: any, emaSlow: any, emaFast: any): any {
+    try {
+      const lookback = 5;
+      const swingLow = this.utils.lowest(data, i - 1, 'low', lookback);
+      const candleSize = Math.abs(this.high(data, i, 0) - this.low(data, i, 0));
+
+      const upTrend = this.low(data, i, 0) > emaTrend[i];
+      const crossUp = emaFast[i - 1] < emaSlow[i - 1] && emaFast[i] > emaSlow[i];
+      const candleSizeParam = candleSize < atr[i] * 1;
+
+      return {
+        startTrade: upTrend && crossUp && candleSizeParam,
+        stopLoss: swingLow,
+        entryPrice: this.close(data, i, 0),
+        trigger: ''
+      };
+    } catch (error) {
+      console.log(error);
+    }
+
+
   }
 
 

@@ -161,4 +161,15 @@ export class UtilsService extends CandleAbstract {
 
     return result;
   }
+
+
+  getColor(rr: number): string {
+    if (rr > 0) {
+      return '#56ba49';
+    } else if (rr < 0) {
+      return '#ba4949';
+    } else {
+      return '#e8e8e8';
+    }
+  }
 }

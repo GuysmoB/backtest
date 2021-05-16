@@ -94,22 +94,23 @@ export class ExitStrategiesService extends CandleAbstract {
   }
 
 
-  updateStopLoss(data: any, i: number, entryPrice: number, initialStopLoss: number, updatedStopLoss: number, trailingNumber: number): number {
+  updateStopLoss(data: any, i: number, entryPrice: number, initialStopLoss: number, updatedStopLoss: number, time: number, trailingNumber: number): number {
     if (trailingNumber > 1) {
       console.error('trailingNumber too big');
     }
 
-    const step1 = entryPrice + (entryPrice - initialStopLoss) * 2;
-    const step2 = entryPrice + (entryPrice - initialStopLoss) * 3;
+    if (i - time !== 0) { // Ne pas MAJ directement lors du retest
+      const step1 = entryPrice + (entryPrice - initialStopLoss) * 2;
+      const step2 = entryPrice + (entryPrice - initialStopLoss) * 3;
+      const newStopValue = entryPrice + (this.high(data, i, 0) - entryPrice) * trailingNumber;
 
-    if (this.high(data, i, 0) >= step1 && updatedStopLoss < entryPrice) {
-      updatedStopLoss = entryPrice;
-      this.logEnable ? console.log('To BE', this.date(data, i, 0)) : NaN;
-    }
-
-    if (this.high(data, i, 0) >= step2 && (entryPrice + (this.high(data, i, 0) - entryPrice) * trailingNumber) > updatedStopLoss) {
-      updatedStopLoss = entryPrice + (this.high(data, i, 0) - entryPrice) * trailingNumber;
-      this.logEnable ? console.log('Trailing', this.date(data, i, 0)) : NaN;
+      if (this.high(data, i, 0) >= step2 && newStopValue > updatedStopLoss) {
+        updatedStopLoss = newStopValue;
+        this.logEnable ? console.log('Trailing', this.date(data, i, 0), updatedStopLoss) : NaN;
+      } else if (this.high(data, i, 0) >= step1 && updatedStopLoss < entryPrice) {
+        updatedStopLoss = entryPrice;
+        this.logEnable ? console.log('To BE', this.date(data, i, 0), updatedStopLoss) : NaN;
+      }
     }
 
     return updatedStopLoss;
@@ -122,4 +123,20 @@ export class ExitStrategiesService extends CandleAbstract {
     }
   }
 
+
+  getPcyExit(data: any, i: number, entryPrice: number, initialStopLoss: number, emaFast: any, emaSlow: any): number {
+    try {
+      const dist1 = emaFast[i - 1] - emaSlow[i - 1];
+      const dist0 = emaFast[i] - emaSlow[i];
+
+      if (this.low(data, i, 0) <= initialStopLoss) {
+        this.logEnable ? console.log('SL', data[i]) : NaN;
+        return -1;
+      } else if (dist1 > dist0) {
+        return this.utils.getRiskReward(entryPrice, initialStopLoss, this.close(data, i, 0));
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  }
 }
