@@ -26,6 +26,36 @@ export class ExitStrategiesService extends CandleAbstract {
     return result;
   }
 
+  /* getFixedTakeProfitAndStopLoss(direction: string, tickerTfData: any, price: number): number {
+    let result: number;
+
+    if (direction === 'LONG') {
+      const entryPrice = tickerTfData.entryPrice_Long;
+      const initialStopLoss = tickerTfData.initialStopLoss_Long;
+      const takeProfit = tickerTfData.takeProfit_Long;
+
+      if (price >= takeProfit) {
+        result = this.utils.getRiskReward(entryPrice, initialStopLoss, takeProfit);
+      } else if (price <= initialStopLoss) {
+        result = -1;
+      }
+    } else if (direction === 'SHORT') {
+      const entryPrice = tickerTfData.entryPrice_Short;
+      const initialStopLoss = tickerTfData.initialStopLoss_Short;
+      const takeProfit = tickerTfData.takeProfit_Short;
+
+      if (price <= takeProfit) {
+        result = this.utils.getRiskReward(entryPrice, initialStopLoss, takeProfit);
+      } else if (price >= initialStopLoss) {
+        result = -1;
+      }
+    } else {
+      console.error('Long or Short ?');
+    }
+
+    return result;
+  } */
+
 
   getFixedTakeProfitpAndBreakEvenStopLoss(data: any, i: number, entryPrice: number, initialStopLoss: number, updatedStopLoss: number, takeProfit: number, targetRR: number): number {
     let result: number;

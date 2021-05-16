@@ -121,18 +121,25 @@ export class EntryStrategiesService extends CandleAbstract {
   /**
    * Identifier une prise de liquidite, le garder en mémoire. Attendre un break
    */
-  strategy_LiquidityDelayed_Long(data: any, i: number, trigger: any, liquidity: any): any {
+  strategy_LiquidityDelayed_Long(data: any, i: number, trigger: any): any {
     let retest: boolean;
     let entryPrice: number;
     let sl: number;
-    const maxTimeSpent = 20;
-    let setup = liquidity && this.high(data, i, 0) > liquidity.swingHigh && this.isUp(data, i, 0);
+    let setup: boolean;
+    const maxTimeSpent = 3;
 
-    if (data[i].date === '2019-01-03 13:00') {
+    const liquidity = this.checkLiquidity(data, i);
+    if (liquidity && this.close(data, i, 0) > liquidity.swingHigh && this.isUp(data, i, 0)) {
+      setup = true;
+    }
+
+    //let setup = liquidity && this.high(data, i, 0) > this.high(data, i, 1) && this.isUp(data, i, 0);
+
+    if (data[i].date === '2020-10-16 00:00') {
       console.log()
     }
 
-    if (setup) {
+    /*if (setup) {
       let lowerLow = false;
       for (let j = liquidity.time; j < i; j++) {
         const candle = data[j];
@@ -140,11 +147,11 @@ export class EntryStrategiesService extends CandleAbstract {
           lowerLow = true;
         }
       }
-      if (/*lowerLow ||*/ (i - liquidity.time) > 2) {
+      if ((i - liquidity.time) > 2) {
         setup = false;
         //console.log('setup with lowerlow', data[i].date)
       }
-    }
+    }*/
 
     if (setup && trigger.length === 0) {
       this.logEnable ? console.log('setup', data[i].date/*, data[i - 1], data[i]*/) : NaN;
@@ -153,7 +160,7 @@ export class EntryStrategiesService extends CandleAbstract {
     } else if (trigger.length > 0) {
       const timeSpent = i - trigger[0].time;
 
-      if (timeSpent <= maxTimeSpent/* && this.low(data, i, 0) <= trigger[0].swingHigh*/) {
+      if (timeSpent <= maxTimeSpent && this.low(data, i, 0) <= trigger[0].swingHigh) {
         retest = true;
         sl = trigger[0].swingLow;
         entryPrice = trigger[0].swingHigh;
@@ -174,14 +181,13 @@ export class EntryStrategiesService extends CandleAbstract {
 
 
 
-  checkLiquidity(data: any, i: number, atr: any): any {
+  checkLiquidity(data: any, i: number): any {
     let lastLow: number;
     let brokenLows = 0;
+    let canceledLong = false;
     const lookback = 10;
     const $swingHigh = this.utils.highest(data, i - 1, 'high', lookback);
     const $swingLow = this.utils.lowest(data, i - 1, 'low', lookback);
-    const rangeHigh = this.utils.round(this.low(data, i, 0) + atr[i] * 3.5, 5);
-    const rangeLow = this.low(data, i, 0);
 
     for (let k = (i - 1); k >= (i - lookback); k--) {
       const candle = data[k];
@@ -191,15 +197,27 @@ export class EntryStrategiesService extends CandleAbstract {
       }
 
       if (candle.low < this.low(data, i, 0)) {
-        return undefined;
-      } else if (candle.low <= rangeHigh && candle.low >= rangeLow && candle.low <= lastLow) {
+        canceledLong = true;
+      } else if (candle.low <= lastLow && !canceledLong) {
         brokenLows++;
         lastLow = candle.low;
       }
+
+      /*  if (candle.low < this.low(data, i, 0)) {
+         return undefined;
+       } else if (candle.low <= rangeHigh && candle.low >= rangeLow && candle.low <= lastLow) {
+         brokenLows++;
+         lastLow = candle.low;
+       } */
+    }
+
+    // Remove first candle if same color
+    if (brokenLows > 0 && !this.isUp(data, i, 1) && !this.isUp(data, i, 0)) {
+      brokenLows--;
     }
 
     if (brokenLows >= 2) {
-      console.log('liquidity found !', data[i].date, brokenLows, rangeHigh, rangeLow);
+      //console.log('liquidity found !', data[i].date, brokenLows);
       return {
         time: i,
         swingHigh: $swingHigh,
@@ -260,9 +278,87 @@ export class EntryStrategiesService extends CandleAbstract {
     } catch (error) {
       console.log(error);
     }
-
-
   }
 
+
+  checkLiquidity_Long(data: any, atr: any): any {
+    let lastLow: number;
+    let $brokenLows = 0;
+    const lookback = 10;
+
+    if (data.length >= lookback + 1) {
+      const i = data.length - 1;
+      const $swingHigh = this.utils.highest(data, i - 1, 'high', lookback);
+      const $swingLow = this.utils.lowest(data, i - 1, 'low', lookback);
+      const rangeHigh = this.utils.round(this.low(data, i, 0) + atr[i] * 2.5, 5);
+      const rangeLow = this.low(data, i, 0);
+
+      for (let k = (i - 1); k >= (i - lookback); k--) {
+        const candle = data[k];
+        if ($brokenLows === 0) {
+          lastLow = candle.low;
+        }
+
+        if (candle.low < this.low(data, i, 0)) {
+          return undefined;
+        } else if (candle.low <= rangeHigh && candle.low >= rangeLow && candle.low <= lastLow) {
+          $brokenLows++;
+          lastLow = candle.low;
+        }
+      }
+
+      if ($brokenLows >= 2) {
+        return {
+          time: i,
+          swingHigh: $swingHigh,
+          swingLow: $swingLow,
+          brokenLows: $brokenLows
+        };
+      }
+    }
+  }
+
+
+  /**
+   * Identifier une prise de liquidite, le garder en mémoire. Attendre un break
+   */
+  strategy_LiquidityBreakout_Long(data: any, liquidity: any): boolean {
+    if (data.length >= 1 && liquidity) {
+      const i = data.length - 1;
+      const timeToBreak = (i - liquidity.time);
+      return liquidity && this.high(data, i, 0) > liquidity.swingHigh && this.isUp(data, i, 0) && timeToBreak > 0 && timeToBreak <= 2;
+    }
+  }
+
+  trigger_EngulfingRetested_Long(snapshot: any, lastCandle: any): any {
+    // ici condition pour limit ou market
+    if (snapshot && !snapshot.canceled && lastCandle.low <= snapshot.candle1.open && lastCandle.low > snapshot.candle1.low) {
+      return {
+        stopLoss: snapshot.candle1.low,
+        entryPrice: snapshot.candle1.open,
+      };
+    }
+  }
+
+  strategy_EngulfingRetested_LongV2(data: any, atr: any): any {
+    if (data.length >= 2) {
+      const i = data.length - 1;
+      const candle0Size = Math.abs(this.close(data, i, 0) - this.open(data, i, 0));
+      const candle1Size = Math.abs(this.close(data, i, 1) - this.open(data, i, 1));
+      const isHigherHigh = this.high(data, i, 1) < this.high(data, i, 0); // anti gap
+      const isLongEnough1 = (candle1Size / atr[i]) > 0.1;
+      const setup = !this.isUp(data, i, 1) /*&& isLongEnough1 */ && this.isUp(data, i, 0) && (candle0Size >= candle1Size * 3) && isHigherHigh;
+
+      if (setup) {
+        //console.log('candle size', candle1Size / atr[i], data[i].date);
+        return {
+          time: i,
+          canceled: false,
+          candle1: data[i - 1],
+          candle0: data[i]
+        };
+      }
+    }
+  }
 
 }
