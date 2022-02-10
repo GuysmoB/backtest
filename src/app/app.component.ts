@@ -6,6 +6,7 @@ import { CandleAbstract } from './abstract/candleAbstract';
 import { HttpClient } from '@angular/common/http';
 import { Component, OnInit } from '@angular/core';
 import * as FusionCharts from 'fusioncharts';
+import { stringify } from 'querystring';
 
 // https://www.fusioncharts.com/dev/fusiontime/fusiontime-attributes
 // https://www.fusioncharts.com/dev/fusiontime/getting-started/how-fusion-time-works
@@ -26,7 +27,7 @@ export class AppComponent extends CandleAbstract implements OnInit {
    * Intégrés les courbes des R:R gagnés,
    */
 
-  assetsArray = ['EURUSD60.csv'];
+  assetsArray = ['btc1_kraken.txt'];
   //assetsArray = ['AUDCHF60.csv', 'EURGBP60.csv', 'EURUSD60.csv'];
   data = [];
   haData = [];
@@ -49,57 +50,32 @@ export class AppComponent extends CandleAbstract implements OnInit {
   async ngOnInit(): Promise<void> {
     //const rrArray = [4, 5, 6, 7, 8, 9, 10];
     const rrArray = [0.8];
-    for (const j of rrArray) { // for (let j = 0; j < 200; j++) {   
+    //for (const j of rrArray) { // for (let j = 0; j < 200; j++) {   
       this.winTrades = [];
       this.loseTrades = [];
       this.allTrades = [];
 
       for (const element of this.assetsArray) {
         this.data = [];
-        await this.getDataFromFile(element);
-        this.runBacktest(j);
+        //this.data =  await this.utils.getDataFromTxt(element);
+        this.data = await this.utils.getDataFromFile('orderBook_data_firebase.txt');
+        //this.data = await this.utils.getDataFromFirebase('orderbook-data');
+        //console.log(JSON.stringify(this.data))
+        console.log(this.data)
+        this.runBacktest(1);
       }
       console.log('-------------');
       console.log('Trades : Gagnes / Perdus / Total', this.winTrades.length, this.loseTrades.length, this.winTrades.length + this.loseTrades.length);
-      console.log('R:R target', j);
+      console.log('R:R target', 'X');
       console.log('Total R:R', this.utils.round(this.loseTrades.reduce((a, b) => a + b, 0) + this.winTrades.reduce((a, b) => a + b, 0), 2));
       console.log('Avg R:R', this.utils.round(this.allTrades.reduce((a, b) => a + b, 0) / this.allTrades.length, 2));
       console.log('Winrate ' + this.utils.round((this.winTrades.length / (this.loseTrades.length + this.winTrades.length)) * 100, 2) + '%');
       console.log(this.allTrades);
-    }
+    //}
 
     this.initGraphProperties(this.data);
   }
 
-
-  /**
-   * Parse et push les donnees CSV.
-   */
-  getDataFromFile(devise: string): Promise<any> {
-    return new Promise<any>((resolve, reject) => {
-      this.http.get('assets/' + devise, { responseType: 'text' }).subscribe(
-        (data) => {
-          const csvToRowArray = data.split('\r\n');
-          for (let index = 1; index < csvToRowArray.length - 1; index++) {
-            const element = csvToRowArray[index].split('\t'); // d, o, h, l, c, v
-            this.data.push({
-              date: element[0],
-              open: parseFloat(element[1]),
-              high: parseFloat(element[2]),
-              low: parseFloat(element[3]),
-              close: parseFloat(element[4]),
-              volume: parseFloat(element[5])
-            });
-          }
-          resolve();
-        },
-        (error) => {
-          console.log(error);
-          reject(error);
-        }
-      );
-    });
-  }
 
 
   /**
@@ -147,7 +123,7 @@ export class AppComponent extends CandleAbstract implements OnInit {
         inLong = false;
         this.allTrades.push(rr);
         longTimeMarker.end = this.date(this.data, i, 0);
-        this.timeMarkerArray.push(longTimeMarker);
+        //this.timeMarkerArray.push(longTimeMarker);
 
         if (rr >= 0) {
           this.winTrades.push(rr);
@@ -157,8 +133,7 @@ export class AppComponent extends CandleAbstract implements OnInit {
       }
 
       if (!inLong) {
-        //const res = this.esService.strategy_LSD_Long(this.data, i);
-        const res = this.esService.strategy_test2(this.data, i);
+        const res = this.esService.strategy_HA_Long(this.haData, this.data, i);
         if (res.startTrade) {
           inLong = true;
           entryPrice = res.entryPrice;

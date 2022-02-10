@@ -68,14 +68,20 @@ export class EntryStrategiesService extends CandleAbstract {
 
   strategy_HA_Long(haData: any, data: any, i: number): any {
     const lookback = 3;
-    const bullCandle = haData[i].close > haData[i].open && haData[i].open >= haData[i].low;
-    const swingLow = this.utils.lowest(haData, i - 1, 'low', lookback);
-    const sma = (this.close(data, i, 0) > this.utils.sma(data, i, 50));
+    
+    let cond = true;
+    for (let j = (i - 1); j >= (i - lookback); j--) {
+      const ha = haData[j];
+      if (ha.bull) {
+        cond = false;
+        break;
+      }
+    }
 
     return {
-      startTrade: bullCandle && sma,
-      stopLoss: swingLow,
-      entryPrice: this.close(data, i, 0)
+      startTrade: cond && haData[i].bull && data[i].ratio2p5 > 10,
+      stopLoss: this.utils.lowest(haData, i - 1, 'low', 1),
+      entryPrice: this.close(data, i, 0) + 5
     };
   }
 
