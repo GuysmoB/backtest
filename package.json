@@ -26,8 +26,8 @@
     "fusioncharts": "^3.15.3",
     "ngx-csv-parser": "0.0.6",
     "rxjs": "~6.5.5",
-    "ta-math": "^1.0.26",
     "tslib": "^2.0.0",
+    "tulind": "^0.8.18",
     "zone.js": "~0.10.3"
   },
   "devDependencies": {

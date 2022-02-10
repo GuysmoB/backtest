@@ -212,11 +212,6 @@ export class UtilsService extends CandleAbstract {
    */
   getRiskReward(entryPrice: number, initialStopLoss: number, closedPrice: number): number {
     let result = this.round((closedPrice - entryPrice) / (entryPrice - initialStopLoss), 2);
-
-    if (result == -0) {
-      result = 0;
-    }
-
     return result;
   }
 
@@ -292,18 +287,27 @@ export class UtilsService extends CandleAbstract {
   }
 
 
-  sma(data: any, index: number, periode: number): number {
-    const result = [];
-    const dataStart = index - periode;
-
-    if (dataStart > 0) {
-      for (let i = dataStart; i < index; i++) {
-        result.push(data[i].close);
-      }
-      return this.round(result.reduce((a, b) => a + b, 0) / result.length, 5);
+  getColor(rr: number): string {
+    if (rr > 0) {
+      return '#56ba49';
+    } else if (rr < 0) {
+      return '#ba4949';
     } else {
-      return 0;
+      return '#e8e8e8';
     }
-    
+  }
+
+  /**
+  * Retourne la date avec décalage horaire.
+  */
+  getDate(): any {
+    let date = new Date();
+    const year = date.getFullYear();
+    const month = '0' + (date.getMonth() + 1);
+    const day = '0' + date.getDate();
+    const hours = '0' + date.getHours();
+    const minutes = '0' + date.getMinutes();
+    const second = '0' + date.getSeconds();
+    return day.substr(-2) + '/' + month.substr(-2) + '/' + year + ' ' + hours.substr(-2) + ':' + minutes.substr(-2) + ':' + second.substr(-2);
   }
 }

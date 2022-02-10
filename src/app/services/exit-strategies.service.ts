@@ -16,15 +16,45 @@ export class ExitStrategiesService extends CandleAbstract {
     let result: number;
 
     if (this.low(data, i, 0) <= initialStopLoss) {
-      result = -1;
       this.logEnable ? console.log('SL', data[i]) : NaN;
+      result = -1;
     } else if (this.high(data, i, 0) >= takeProfit) {
-      result = this.utils.getRiskReward(entryPrice, initialStopLoss, takeProfit);
       this.logEnable ? console.log('TP', data[i]) : NaN;
+      result = this.utils.getRiskReward(entryPrice, initialStopLoss, takeProfit);
     }
 
     return result;
   }
+
+  /* getFixedTakeProfitAndStopLoss(direction: string, tickerTfData: any, price: number): number {
+    let result: number;
+
+    if (direction === 'LONG') {
+      const entryPrice = tickerTfData.entryPrice_Long;
+      const initialStopLoss = tickerTfData.initialStopLoss_Long;
+      const takeProfit = tickerTfData.takeProfit_Long;
+
+      if (price >= takeProfit) {
+        result = this.utils.getRiskReward(entryPrice, initialStopLoss, takeProfit);
+      } else if (price <= initialStopLoss) {
+        result = -1;
+      }
+    } else if (direction === 'SHORT') {
+      const entryPrice = tickerTfData.entryPrice_Short;
+      const initialStopLoss = tickerTfData.initialStopLoss_Short;
+      const takeProfit = tickerTfData.takeProfit_Short;
+
+      if (price <= takeProfit) {
+        result = this.utils.getRiskReward(entryPrice, initialStopLoss, takeProfit);
+      } else if (price >= initialStopLoss) {
+        result = -1;
+      }
+    } else {
+      console.error('Long or Short ?');
+    }
+
+    return result;
+  } */
 
 
   getFixedTakeProfitpAndBreakEvenStopLoss(data: any, i: number, entryPrice: number, initialStopLoss: number, updatedStopLoss: number, takeProfit: number, targetRR: number): number {
@@ -85,31 +115,57 @@ export class ExitStrategiesService extends CandleAbstract {
       result = -1;
     } else if (haData[i - 1].bull && haData[i].bear) {
       result = this.utils.getRiskReward(entryPrice, initialStopLoss, this.close(data, i, 0));
+    } else if (this.low(data, i, 0) <= initialStopLoss) {
+      result = -1;
     }
 
     return result;
   }
 
 
-  updateStopLoss(data: any, i: number, entryPrice: number, initialStopLoss: number, updatedStopLoss: number, trailingNumber: number): number {
+  updateStopLoss(data: any, i: number, entryPrice: number, initialStopLoss: number, updatedStopLoss: number, time: number, trailingNumber: number): number {
     if (trailingNumber > 1) {
       console.error('trailingNumber too big');
     }
 
-    const step1 = entryPrice + (entryPrice - initialStopLoss) * 2;
-    const step2 = entryPrice + (entryPrice - initialStopLoss) * 3;
+    if (i - time !== 0) { // Ne pas MAJ directement lors du retest
+      const step1 = entryPrice + (entryPrice - initialStopLoss) * 2;
+      const step2 = entryPrice + (entryPrice - initialStopLoss) * 3;
+      const newStopValue = entryPrice + (this.high(data, i, 0) - entryPrice) * trailingNumber;
 
-    if (this.high(data, i, 0) >= step1 && updatedStopLoss < entryPrice) {
-      updatedStopLoss = entryPrice;
-      this.logEnable ? console.log('To BE', this.date(data, i, 0)) : NaN;
-    }
-
-    if (this.high(data, i, 0) >= step2 && (entryPrice + (this.high(data, i, 0) - entryPrice) * trailingNumber) > updatedStopLoss) {
-      updatedStopLoss = entryPrice + (this.high(data, i, 0) - entryPrice) * trailingNumber;
-      this.logEnable ? console.log('Trailing', this.date(data, i, 0)) : NaN;
+      if (this.high(data, i, 0) >= step2 && newStopValue > updatedStopLoss) {
+        updatedStopLoss = newStopValue;
+        this.logEnable ? console.log('Trailing', this.date(data, i, 0), updatedStopLoss) : NaN;
+      } else if (this.high(data, i, 0) >= step1 && updatedStopLoss < entryPrice) {
+        updatedStopLoss = entryPrice;
+        this.logEnable ? console.log('To BE', this.date(data, i, 0), updatedStopLoss) : NaN;
+      }
     }
 
     return updatedStopLoss;
   }
 
+
+  timeExit(data: any, i: number, before: number, entryPrice: number): any {
+    if ((i - before) >= 5) {
+      return this.utils.round((this.close(data, i, 0) - entryPrice) / entryPrice, 5);
+    }
+  }
+
+
+  getPcyExit(data: any, i: number, entryPrice: number, initialStopLoss: number, emaFast: any, emaSlow: any): number {
+    try {
+      const dist1 = emaFast[i - 1] - emaSlow[i - 1];
+      const dist0 = emaFast[i] - emaSlow[i];
+
+      if (this.low(data, i, 0) <= initialStopLoss) {
+        this.logEnable ? console.log('SL', data[i]) : NaN;
+        return -1;
+      } else if (dist1 > dist0) {
+        return this.utils.getRiskReward(entryPrice, initialStopLoss, this.close(data, i, 0));
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  }
 }

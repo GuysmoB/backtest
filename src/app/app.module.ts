@@ -1,3 +1,4 @@
+import { IndicatorsService } from './services/indicators.service';
 import { UtilsService } from './services/utils.service';
 import { GraphService } from './services/graph.service';
 import { EntryStrategiesService } from './services/entry-strategies.service';
@@ -38,7 +39,7 @@ const firebaseConfig = {
     FusionChartsModule,
     AngularFireModule.initializeApp(firebaseConfig)
   ],
-  providers: [GraphService, EntryStrategiesService, UtilsService],
+  providers: [GraphService, EntryStrategiesService, UtilsService, IndicatorsService],
   bootstrap: [AppComponent]
 })
 export class AppModule { }
