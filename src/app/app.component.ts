@@ -109,10 +109,10 @@ export class AppComponent extends CandleAbstract implements OnInit {
         } else if (isFixedTakeProfitAndBreakEvenStopLoss) {
           rr = this.exService.getFixedTakeProfitpAndBreakEvenStopLoss(this.data, i, entryPrice, initialStopLoss, updatedStopLoss, takeProfit, arg);
         } else if (isTrailingStopLoss) {
-          updatedStopLoss = this.exService.updateStopLoss(this.data, i, entryPrice, initialStopLoss, updatedStopLoss, arg);
+          updatedStopLoss = this.exService.updateStopLoss(this.data, i, entryPrice, initialStopLoss, updatedStopLoss, 12, arg); //ARG mauvais
           rr = this.exService.getTrailingStopLoss(this.data, i, entryPrice, initialStopLoss, updatedStopLoss);
         } else if (isFixedTakeProfitAndTrailingStopLoss) {
-          updatedStopLoss = this.exService.updateStopLoss(this.data, i, entryPrice, initialStopLoss, updatedStopLoss, 0.7);
+          updatedStopLoss = this.exService.updateStopLoss(this.data, i, entryPrice, initialStopLoss, updatedStopLoss, 12, 0.7); //ARG mauvais
           rr = this.exService.getFixeTakeProfitAndTrailingStopLoss(this.data, i, entryPrice, initialStopLoss, updatedStopLoss, takeProfit);
         } else if (isHeikenAshi) {
           rr = this.exService.getHeikenAshi(this.haData, this.data, i, entryPrice, initialStopLoss);
