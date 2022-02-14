@@ -74,7 +74,7 @@ export class EntryStrategiesService extends CandleAbstract {
     }
 
     return {
-      startTrade: cond && haData[i].bull /* && rsiValues[i] < arg */ && data[i].ratio2p5 > 0 && data[i].ratio1 > arg,
+      startTrade: cond && haData[i].bull /* && rsiValues[i] < arg */ && data[i].ratio2p5 > 0,
       stopLoss: this.utils.lowest(haData, i - 1, 'low', 1),
       entryPrice: this.close(data, i, 0) + 5
     };
