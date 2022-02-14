@@ -61,8 +61,8 @@ export class EntryStrategiesService extends CandleAbstract {
     };
   }
 
-  strategy_HA_Long(haData: any, data: any, i: number): any {
-    const lookback = 3;
+  strategy_HA_Long(haData: any, data: any, i: number, rsiValues: any, arg: any): any {
+    const lookback = 1;
     
     let cond = true;
     for (let j = (i - 1); j >= (i - lookback); j--) {
@@ -74,7 +74,7 @@ export class EntryStrategiesService extends CandleAbstract {
     }
 
     return {
-      startTrade: cond && haData[i].bull && data[i].ratio2p5 > 10,
+      startTrade: cond && haData[i].bull /* && rsiValues[i] < arg */ && data[i].ratio2p5 > 0 && data[i].ratio1 > arg,
       stopLoss: this.utils.lowest(haData, i - 1, 'low', 1),
       entryPrice: this.close(data, i, 0) + 5
     };

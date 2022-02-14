@@ -2,6 +2,7 @@ import { ExitStrategiesService } from './services/exit-strategies.service';
 import { EntryStrategiesService } from './services/entry-strategies.service';
 import { UtilsService } from './services/utils.service';
 import { GraphService } from './services/graph.service';
+import { IndicatorsService } from './services/indicators.service';
 import { CandleAbstract } from './abstract/candleAbstract';
 import { HttpClient } from '@angular/common/http';
 import { Component, OnInit } from '@angular/core';
@@ -34,13 +35,15 @@ export class AppComponent extends CandleAbstract implements OnInit {
   winTrades = [];
   loseTrades = [];
   allTrades = [];
+  rsiValues: any;
   timeMarkerArray = [];
   dataSourceCandle: any;
   dataSourceRisk: any;
   dataSourceInterest: any;
   displayChart = true;
 
-  constructor(private http: HttpClient, private graphService: GraphService, private utils: UtilsService, private esService: EntryStrategiesService, private exService: ExitStrategiesService) {
+  constructor(private http: HttpClient, private graphService: GraphService, private utils: UtilsService, 
+    private esService: EntryStrategiesService, private exService: ExitStrategiesService, private indicators: IndicatorsService) {
     super();
   }
 
@@ -48,30 +51,28 @@ export class AppComponent extends CandleAbstract implements OnInit {
    * Initialisation
    */
   async ngOnInit(): Promise<void> {
-    //const rrArray = [4, 5, 6, 7, 8, 9, 10];
-    const rrArray = [0.8];
-    //for (const j of rrArray) { // for (let j = 0; j < 200; j++) {   
+    const arg = [5, 10 , 15, 20 , 25];
+    for (const j of arg) { // for (let j = 0; j < 200; j++) {   
       this.winTrades = [];
       this.loseTrades = [];
       this.allTrades = [];
 
       for (const element of this.assetsArray) {
         this.data = [];
-        //this.data =  await this.utils.getDataFromTxt(element);
+        //this.data =  await this.utils.getDataFromFile('btc1_hxro.txt');
         this.data = await this.utils.getDataFromFile('orderBook_data_firebase.txt');
-        //this.data = await this.utils.getDataFromFirebase('orderbook-data');
         //console.log(JSON.stringify(this.data))
-        console.log(this.data)
-        this.runBacktest(1);
+        //console.log(this.data)
+        this.runBacktest(j);
       }
       console.log('-------------');
       console.log('Trades : Gagnes / Perdus / Total', this.winTrades.length, this.loseTrades.length, this.winTrades.length + this.loseTrades.length);
-      console.log('R:R target', 'X');
+      console.log('RSI Value', j);
       console.log('Total R:R', this.utils.round(this.loseTrades.reduce((a, b) => a + b, 0) + this.winTrades.reduce((a, b) => a + b, 0), 2));
       console.log('Avg R:R', this.utils.round(this.allTrades.reduce((a, b) => a + b, 0) / this.allTrades.length, 2));
       console.log('Winrate ' + this.utils.round((this.winTrades.length / (this.loseTrades.length + this.winTrades.length)) * 100, 2) + '%');
-      console.log(this.allTrades);
-    //}
+      console.log(this.allTrades.length);
+    }
 
     this.initGraphProperties(this.data);
   }
@@ -90,6 +91,7 @@ export class AppComponent extends CandleAbstract implements OnInit {
     let takeProfit: any;
     let longTimeMarker: any;
     this.haData = this.utils.setHeikenAshiData(this.data); // promise ?
+    this.rsiValues = this.indicators.rsi(this.data, 14);
 
     const isTrailingStopLoss = false;
     const isFixedTakeProfitAndTrailingStopLoss = false;
@@ -109,10 +111,10 @@ export class AppComponent extends CandleAbstract implements OnInit {
         } else if (isFixedTakeProfitAndBreakEvenStopLoss) {
           rr = this.exService.getFixedTakeProfitpAndBreakEvenStopLoss(this.data, i, entryPrice, initialStopLoss, updatedStopLoss, takeProfit, arg);
         } else if (isTrailingStopLoss) {
-          updatedStopLoss = this.exService.updateStopLoss(this.data, i, entryPrice, initialStopLoss, updatedStopLoss, 12, arg); //ARG mauvais
+          updatedStopLoss = this.exService.updateStopLoss(this.data, i, entryPrice, initialStopLoss, updatedStopLoss, 0.6); 
           rr = this.exService.getTrailingStopLoss(this.data, i, entryPrice, initialStopLoss, updatedStopLoss);
         } else if (isFixedTakeProfitAndTrailingStopLoss) {
-          updatedStopLoss = this.exService.updateStopLoss(this.data, i, entryPrice, initialStopLoss, updatedStopLoss, 12, 0.7); //ARG mauvais
+          updatedStopLoss = this.exService.updateStopLoss(this.data, i, entryPrice, initialStopLoss, updatedStopLoss, 0.8); 
           rr = this.exService.getFixeTakeProfitAndTrailingStopLoss(this.data, i, entryPrice, initialStopLoss, updatedStopLoss, takeProfit);
         } else if (isHeikenAshi) {
           rr = this.exService.getHeikenAshi(this.haData, this.data, i, entryPrice, initialStopLoss);
@@ -133,7 +135,7 @@ export class AppComponent extends CandleAbstract implements OnInit {
       }
 
       if (!inLong) {
-        const res = this.esService.strategy_HA_Long(this.haData, this.data, i);
+        const res = this.esService.strategy_HA_Long(this.haData, this.data, i, this.rsiValues, arg);
         if (res.startTrade) {
           inLong = true;
           entryPrice = res.entryPrice;

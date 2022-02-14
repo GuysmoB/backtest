@@ -115,20 +115,18 @@ export class ExitStrategiesService extends CandleAbstract {
       result = -1;
     } else if (haData[i - 1].bull && haData[i].bear) {
       result = this.utils.getRiskReward(entryPrice, initialStopLoss, this.close(data, i, 0));
-    } else if (this.low(data, i, 0) <= initialStopLoss) {
-      result = -1;
-    }
+    } 
 
     return result;
   }
 
 
-  updateStopLoss(data: any, i: number, entryPrice: number, initialStopLoss: number, updatedStopLoss: number, time: number, trailingNumber: number): number {
+  updateStopLoss(data: any, i: number, entryPrice: number, initialStopLoss: number, updatedStopLoss: number, trailingNumber: number): number {
     if (trailingNumber > 1) {
       console.error('trailingNumber too big');
     }
 
-    if (i - time !== 0) { // Ne pas MAJ directement lors du retest
+    //if (i - time !== 0) { // Ne pas MAJ directement lors du retest
       const step1 = entryPrice + (entryPrice - initialStopLoss) * 2;
       const step2 = entryPrice + (entryPrice - initialStopLoss) * 3;
       const newStopValue = entryPrice + (this.high(data, i, 0) - entryPrice) * trailingNumber;
@@ -140,7 +138,7 @@ export class ExitStrategiesService extends CandleAbstract {
         updatedStopLoss = entryPrice;
         this.logEnable ? console.log('To BE', this.date(data, i, 0), updatedStopLoss) : NaN;
       }
-    }
+    //}
 
     return updatedStopLoss;
   }
