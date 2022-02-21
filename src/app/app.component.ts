@@ -7,7 +7,6 @@ import { CandleAbstract } from './abstract/candleAbstract';
 import { HttpClient } from '@angular/common/http';
 import { Component, OnInit } from '@angular/core';
 import * as FusionCharts from 'fusioncharts';
-import { stringify } from 'querystring';
 
 // https://www.fusioncharts.com/dev/fusiontime/fusiontime-attributes
 // https://www.fusioncharts.com/dev/fusiontime/getting-started/how-fusion-time-works
@@ -22,14 +21,7 @@ import { stringify } from 'querystring';
 })
 export class AppComponent extends CandleAbstract implements OnInit {
 
-  /**
-   * ## TODO ##
-   * interêts composés,
-   * Intégrés les courbes des R:R gagnés,
-   */
-
   assetsArray = ['btc1_kraken.txt'];
-  //assetsArray = ['AUDCHF60.csv', 'EURGBP60.csv', 'EURUSD60.csv'];
   data = [];
   haData = [];
   winTrades = [];
@@ -42,7 +34,7 @@ export class AppComponent extends CandleAbstract implements OnInit {
   dataSourceInterest: any;
   displayChart = true;
 
-  constructor(private http: HttpClient, private graphService: GraphService, private utils: UtilsService, 
+  constructor(private graphService: GraphService, private utils: UtilsService, 
     private esService: EntryStrategiesService, private exService: ExitStrategiesService, private indicators: IndicatorsService) {
     super();
   }
@@ -84,47 +76,38 @@ export class AppComponent extends CandleAbstract implements OnInit {
    */
   runBacktest(arg: number): void {
     let inLong = false;
-    let trigger = [];
+    let inShort = false;
     let entryPrice: any;
     let initialStopLoss: any;
     let updatedStopLoss: any;
     let takeProfit: any;
     let longTimeMarker: any;
+    const isHeikenAshi = true;
     this.haData = this.utils.setHeikenAshiData(this.data); // promise ?
     this.rsiValues = this.indicators.rsi(this.data, 14);
-
-    const isTrailingStopLoss = false;
-    const isFixedTakeProfitAndTrailingStopLoss = false;
-    const isFixedTakeProfitAndStopLoss = false;
-    const isFixedTakeProfitAndBreakEvenStopLoss = false;
-    const isHeikenAshi = true;
+    
 
     for (let i = 10; i < this.data.length; i++) {       // for (let i = 3809; i < 4101; i++) {
       if (i === (this.data.length - 1)) {
-        inLong = false;
+        inLong = inShort = false;
       }
 
       let rr: number;
       if (inLong) {
-        if (isFixedTakeProfitAndStopLoss) {
-          rr = this.exService.getFixedTakeProfitAndStopLoss(this.data, i, entryPrice, initialStopLoss, takeProfit);
-        } else if (isFixedTakeProfitAndBreakEvenStopLoss) {
-          rr = this.exService.getFixedTakeProfitpAndBreakEvenStopLoss(this.data, i, entryPrice, initialStopLoss, updatedStopLoss, takeProfit, arg);
-        } else if (isTrailingStopLoss) {
-          updatedStopLoss = this.exService.updateStopLoss(this.data, i, entryPrice, initialStopLoss, updatedStopLoss, 0.6); 
-          rr = this.exService.getTrailingStopLoss(this.data, i, entryPrice, initialStopLoss, updatedStopLoss);
-        } else if (isFixedTakeProfitAndTrailingStopLoss) {
-          updatedStopLoss = this.exService.updateStopLoss(this.data, i, entryPrice, initialStopLoss, updatedStopLoss, 0.8); 
-          rr = this.exService.getFixeTakeProfitAndTrailingStopLoss(this.data, i, entryPrice, initialStopLoss, updatedStopLoss, takeProfit);
-        } else if (isHeikenAshi) {
-          rr = this.exService.getHeikenAshi(this.haData, this.data, i, entryPrice, initialStopLoss);
+        if (isHeikenAshi) {
+          rr = this.exService.getHeikenashiResult_long(this.haData, this.data, i, entryPrice, initialStopLoss);
+          if (rr) inLong = false;
+        }
+      } else if (inShort) {
+        if (isHeikenAshi) {
+          rr = this.exService.getHeikenashiResult_short(this.haData, this.data, i, entryPrice, initialStopLoss);
+          if (rr) inShort = false;
         }
       }
 
-      if (rr !== undefined) {
-        inLong = false;
+      if (rr) {
         this.allTrades.push(rr);
-        longTimeMarker.end = this.date(this.data, i, 0);
+        //longTimeMarker.end = this.date(this.data, i, 0);
         //this.timeMarkerArray.push(longTimeMarker);
 
         if (rr >= 0) {
@@ -134,13 +117,12 @@ export class AppComponent extends CandleAbstract implements OnInit {
         }
       }
 
-      if (!inLong) {
-        const res = this.esService.strategy_HA_Long(this.haData, this.data, i, this.rsiValues, arg);
-        if (res.startTrade) {
+      if (!inLong && !inShort) {
+        const resLong = this.esService.strategy_HA_Long(this.haData, this.data, i, this.rsiValues, arg);
+        if (resLong.startTrade) {
           inLong = true;
-          entryPrice = res.entryPrice;
-          trigger = res.trigger;
-          initialStopLoss = updatedStopLoss = res.stopLoss;
+          entryPrice = resLong.entryPrice;
+          initialStopLoss = updatedStopLoss = resLong.stopLoss;
           takeProfit = this.utils.round(entryPrice + (entryPrice - initialStopLoss) * arg, 5);
           longTimeMarker = this.utils.setLongTimeMarker(this.data, i);
 
@@ -152,6 +134,14 @@ export class AppComponent extends CandleAbstract implements OnInit {
             console.log('entryPrice', entryPrice);
             console.log('init stopLoss', initialStopLoss);
             console.log('takeProfit', this.utils.round(takeProfit, 5));
+          }
+        } else {
+          const resShort = this.esService.strategy_HA_Short(this.haData, this.data, i, this.rsiValues, arg);
+          if (resShort.startTrade) {
+            inShort = true;
+            entryPrice = resShort.entryPrice;
+            initialStopLoss = updatedStopLoss = resShort.stopLoss;
+            takeProfit = this.utils.round(entryPrice + (entryPrice - initialStopLoss) * arg, 5);
           }
         }
       }

@@ -80,6 +80,25 @@ export class EntryStrategiesService extends CandleAbstract {
     };
   }
 
+  strategy_HA_Short(haData: any, data: any, i: number, rsiValues: any, arg: any): any {
+    const lookback = 1;
+    
+    let cond = true;
+    for (let j = (i - 1); j >= (i - lookback); j--) {
+      const ha = haData[j];
+      if (ha.bear) {
+        cond = false;
+        break;
+      }
+    }
+
+    return {
+      startTrade: cond && haData[i].bear /* && rsiValues[i] < arg */ && data[i].ratio2p5 < 0,
+      stopLoss: this.utils.highest(haData, i - 1, 'high', 1),
+      entryPrice: this.close(data, i, 0) - 5
+    };
+  }
+
 
   /**
    * Simple retest d'une engulfing.

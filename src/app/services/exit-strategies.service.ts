@@ -108,13 +108,25 @@ export class ExitStrategiesService extends CandleAbstract {
   }
 
 
-  getHeikenAshi(haData: any, data: any, i: number, entryPrice: number, initialStopLoss: number): number {
+  getHeikenashiResult_long(haData: any, data: any, i: number, entryPrice: number, stopLoss: number): number {
     let result: number;
 
-    if (this.low(data, i, 0) <= initialStopLoss) {
+    if (this.low(data, i, 0) <= stopLoss) {
       result = -1;
     } else if (haData[i - 1].bull && haData[i].bear) {
-      result = this.utils.getRiskReward(entryPrice, initialStopLoss, this.close(data, i, 0));
+      result = this.utils.getRiskReward(entryPrice, stopLoss, this.close(data, i, 0));
+    } 
+
+    return result;
+  }
+
+  getHeikenashiResult_short(haData: any, data: any, i: number, entryPrice: number, stopLoss: number): number {
+    let result: number;
+
+    if (this.high(data, i, 0) >= stopLoss) {
+      result = -1;
+    } else if (haData[i - 1].bear && haData[i].bull) {
+      result = this.utils.getRiskReward(entryPrice, stopLoss, this.close(data, i, 0));
     } 
 
     return result;
