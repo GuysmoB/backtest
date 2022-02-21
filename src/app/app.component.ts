@@ -43,7 +43,7 @@ export class AppComponent extends CandleAbstract implements OnInit {
    * Initialisation
    */
   async ngOnInit(): Promise<void> {
-    const arg = [5, 10 , 15, 20 , 25];
+    const arg = [1];
     for (const j of arg) { // for (let j = 0; j < 200; j++) {   
       this.winTrades = [];
       this.loseTrades = [];
@@ -59,7 +59,7 @@ export class AppComponent extends CandleAbstract implements OnInit {
       }
       console.log('-------------');
       console.log('Trades : Gagnes / Perdus / Total', this.winTrades.length, this.loseTrades.length, this.winTrades.length + this.loseTrades.length);
-      console.log('RSI Value', j);
+      console.log('Arg Value', j);
       console.log('Total R:R', this.utils.round(this.loseTrades.reduce((a, b) => a + b, 0) + this.winTrades.reduce((a, b) => a + b, 0), 2));
       console.log('Avg R:R', this.utils.round(this.allTrades.reduce((a, b) => a + b, 0) / this.allTrades.length, 2));
       console.log('Winrate ' + this.utils.round((this.winTrades.length / (this.loseTrades.length + this.winTrades.length)) * 100, 2) + '%');
