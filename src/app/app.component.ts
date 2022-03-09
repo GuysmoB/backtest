@@ -27,6 +27,8 @@ export class AppComponent extends CandleAbstract implements OnInit {
   winTrades = [];
   loseTrades = [];
   allTrades = [];
+  allBalance = [];
+  balance = 1000;
   rsiValues: any;
   timeMarkerArray = [];
   dataSourceCandle: any;
@@ -48,6 +50,8 @@ export class AppComponent extends CandleAbstract implements OnInit {
       this.winTrades = [];
       this.loseTrades = [];
       this.allTrades = [];
+      this.allBalance = [];
+      this.balance = 1000;
 
       for (const element of this.assetsArray) {
         this.data = [];
@@ -60,10 +64,9 @@ export class AppComponent extends CandleAbstract implements OnInit {
       console.log('-------------');
       console.log('Trades : Gagnes / Perdus / Total', this.winTrades.length, this.loseTrades.length, this.winTrades.length + this.loseTrades.length);
       console.log('Arg Value', j);
-      console.log('Total R:R', this.utils.round(this.loseTrades.reduce((a, b) => a + b, 0) + this.winTrades.reduce((a, b) => a + b, 0), 2));
-      console.log('Avg R:R', this.utils.round(this.allTrades.reduce((a, b) => a + b, 0) / this.allTrades.length, 2));
+      console.log('Balance', this.balance);
       console.log('Winrate ' + this.utils.round((this.winTrades.length / (this.loseTrades.length + this.winTrades.length)) * 100, 2) + '%');
-      console.log(this.allTrades.length);
+      console.log(this.winTrades.length);
     }
 
     this.initGraphProperties(this.data);
@@ -76,48 +79,45 @@ export class AppComponent extends CandleAbstract implements OnInit {
    */
   runBacktest(arg: number): void {
     let inLong = false;
-    let inShort = false;
     let entryPrice: any;
     let initialStopLoss: any;
     let updatedStopLoss: any;
     let takeProfit: any;
     let longTimeMarker: any;
     const isHeikenAshi = true;
-    this.haData = this.utils.setHeikenAshiData(this.data); // promise ?
-    this.rsiValues = this.indicators.rsi(this.data, 14);
+    this.haData = this.utils.setHeikenAshiData(this.data); 
+    this.rsiValues = this.indicators.rsi(this.data, 14, "ratio5");
     
-
     for (let i = 10; i < this.data.length; i++) {       // for (let i = 3809; i < 4101; i++) {
       if (i === (this.data.length - 1)) {
-        inLong = inShort = false;
+        inLong = false;
       }
 
-      let rr: number;
+      let result: number;
       if (inLong) {
         if (isHeikenAshi) {
-          rr = this.exService.getHeikenashiResult_long(this.haData, this.data, i, entryPrice, initialStopLoss);
-          if (rr) inLong = false;
-        }
-      } else if (inShort) {
-        if (isHeikenAshi) {
-          rr = this.exService.getHeikenashiResult_short(this.haData, this.data, i, entryPrice, initialStopLoss);
-          if (rr) inShort = false;
-        }
-      }
+          result = this.exService.getHeikenashiResult_long(this.haData, this.data, i, entryPrice, initialStopLoss);
 
-      if (rr) {
-        this.allTrades.push(rr);
-        //longTimeMarker.end = this.date(this.data, i, 0);
-        //this.timeMarkerArray.push(longTimeMarker);
-
-        if (rr >= 0) {
-          this.winTrades.push(rr);
-        } else if (rr < 0) {
-          this.loseTrades.push(rr);
+          if (result) {
+            inLong = false;
+            this.allTrades.push(result);
+            this.balance = this.utils.round(this.balance + this.balance * result, 2);
+            this.allBalance.push(this.balance);
+            //longTimeMarker.end = this.date(this.data, i, 0);
+            //this.timeMarkerArray.push(longTimeMarker);
+    
+            if (result >= 0) {
+              this.winTrades.push(result);
+            } else if (result < 0) {
+              this.loseTrades.push(result);
+            }
+          }
         }
       }
 
-      if (!inLong && !inShort) {
+      
+
+      if (!inLong) {
         const resLong = this.esService.strategy_HA_Long(this.haData, this.data, i, this.rsiValues, arg);
         if (resLong.startTrade) {
           inLong = true;
@@ -135,15 +135,7 @@ export class AppComponent extends CandleAbstract implements OnInit {
             console.log('init stopLoss', initialStopLoss);
             console.log('takeProfit', this.utils.round(takeProfit, 5));
           }
-        } else {
-          const resShort = this.esService.strategy_HA_Short(this.haData, this.data, i, this.rsiValues, arg);
-          if (resShort.startTrade) {
-            inShort = true;
-            entryPrice = resShort.entryPrice;
-            initialStopLoss = updatedStopLoss = resShort.stopLoss;
-            takeProfit = this.utils.round(entryPrice + (entryPrice - initialStopLoss) * arg, 5);
-          }
-        }
+        } 
       }
     } // Fin i array
   }
@@ -163,7 +155,7 @@ export class AppComponent extends CandleAbstract implements OnInit {
     this.dataSourceCandle.xAxis.timemarker = this.timeMarkerArray;
 
     this.dataSourceRisk = this.graphService.dataRisk;
-    this.dataSourceRisk.data = this.utils.formatDataForGraphLine(this.allTrades);
+    this.dataSourceRisk.data = this.utils.formatDataForGraphLine(this.allBalance);
 
     this.dataSourceInterest = this.graphService.dataInterest;
     this.dataSourceInterest.data = this.utils.composedInterest(5000, 1, this.allTrades);

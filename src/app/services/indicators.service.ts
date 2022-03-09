@@ -78,10 +78,10 @@ export class IndicatorsService extends CandleAbstract {
     return result;
   }
 
-  rsi(candlesticks: any, window: number): any {
+  rsi(candlesticks: any, window: number, source: any): any {
     const $close = [];
     for (let j = 0; j < candlesticks.length; j++) {
-      $close.push(candlesticks[j].close);
+      $close.push(candlesticks[j][source]);
     }
 
     const gains = [0];
@@ -95,6 +95,7 @@ export class IndicatorsService extends CandleAbstract {
     const emaLoss = this.ema(loss, 2 * window - 1);
     return this.pointwise((a: number, b: number) => 100 - 100 / (1 + a / b), this.ema(gains, 2 * window - 1), this.ema(loss, 2 * window - 1));
   }
+
 
   crossNumber(data: any, maData: any, periode: number): number {
     let nbCross = 0;

@@ -92,6 +92,12 @@ export class UtilsService extends CandleAbstract {
       });
     }
 
+  /**
+   * Permet de retourner le pourcentage profit
+   */
+  getPercentageResult(entryPrice: number, closedPrice: number): number {
+    return this.round((((closedPrice - entryPrice) / entryPrice)*3) - 0.0007, 4);
+  }
 
   /**
    * Parse et push les donnees CSV.
@@ -256,12 +262,9 @@ export class UtilsService extends CandleAbstract {
     const result = [];
 
     for (let i = 0; i < data.length; i++) {
-      if (result.length === 0) {
         result.push({ label: i, value: data[i] });
-      } else {
-        const toAdd = result[result.length - 1].value;
-        result.push({ label: i, value: data[i] + toAdd });
-      }
+      
+      
     }
     return result;
   }

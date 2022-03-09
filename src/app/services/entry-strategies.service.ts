@@ -62,7 +62,7 @@ export class EntryStrategiesService extends CandleAbstract {
   }
 
   strategy_HA_Long(haData: any, data: any, i: number, rsiValues: any, arg: any): any {
-    const lookback = 1;
+    const lookback = arg;
     
     let cond = true;
     for (let j = (i - 1); j >= (i - lookback); j--) {
@@ -73,36 +73,14 @@ export class EntryStrategiesService extends CandleAbstract {
       }
     }
 
-    const cond2 = true;
+   
 
     return {
-      startTrade: cond && haData[i].bull && cond2 /* && rsiValues[i] < arg */ && data[i].ratio2p5 >= 0,
+      startTrade: cond && haData[i].bull /* && rsiValues[i] > arg */ /* && data[i].ratio2p5 >= 0 */,
       stopLoss: haData[i].low,
-      entryPrice: this.close(data, i, 0) + 5
+      entryPrice: this.close(data, i, 0)
     };
   }
-
-  strategy_HA_Short(haData: any, data: any, i: number, rsiValues: any, arg: any): any {
-    const lookback = 1;
-    
-    let cond = true;
-    for (let j = (i - 1); j >= (i - lookback); j--) {
-      const ha = haData[j];
-      if (ha.bear) {
-        cond = false;
-        break;
-      }
-    }
-
-    const cond2 = true;
-
-    return {
-      startTrade: cond && haData[i].bear && cond2/* && rsiValues[i] < arg */ && data[i].ratio2p5 < 0,
-      stopLoss: haData[i].high,
-      entryPrice: this.close(data, i, 0) - 5
-    };
-  }
-
 
   /**
    * Simple retest d'une engulfing.
