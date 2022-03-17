@@ -45,7 +45,7 @@ export class AppComponent extends CandleAbstract implements OnInit {
    * Initialisation
    */
   async ngOnInit(): Promise<void> {
-    const arg = [1];
+    const arg = [0/* , 5, 10, 15, 20, 25, 30, 35, 40, 45, 50 */];
     for (const j of arg) { // for (let j = 0; j < 200; j++) {   
       this.winTrades = [];
       this.loseTrades = [];
@@ -55,8 +55,8 @@ export class AppComponent extends CandleAbstract implements OnInit {
 
       for (const element of this.assetsArray) {
         this.data = [];
-        //this.data =  await this.utils.getDataFromFile('btc1_hxro.txt');
-        this.data = await this.utils.getDataFromFile('orderBook_data_firebase.txt');
+        this.data =  await this.utils.getDataFromFile('btc1_hxro.txt');
+        //this.data = await this.utils.getDataFromFile('orderBook_data_firebase.txt');
         //console.log(JSON.stringify(this.data))
         //console.log(this.data)
         this.runBacktest(j);

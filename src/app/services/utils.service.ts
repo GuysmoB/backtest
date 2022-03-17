@@ -19,23 +19,24 @@ export class UtilsService extends CandleAbstract {
   /**
    * Parse et push les donnees CSV.
    */
-   /* getDataFromFile(devise: string): Promise<any> {
+   getDataFromCsv(file: string): Promise<any> {
+    let allData = [];
     return new Promise<any>((resolve, reject) => {
-      this.http.get('assets/' + devise, { responseType: 'text' }).subscribe(
+      this.http.get('assets/' + file, { responseType: 'text' }).subscribe(
         (data) => {
           const csvToRowArray = data.split('\r\n');
           for (let index = 1; index < csvToRowArray.length - 1; index++) {
-            const element = csvToRowArray[index].split('\t'); // d, o, h, l, c, v
-            this.data.push({
-              date: element[0],
-              open: parseFloat(element[1]),
-              high: parseFloat(element[2]),
-              low: parseFloat(element[3]),
-              close: parseFloat(element[4]),
-              volume: parseFloat(element[5])
+            const element = csvToRowArray[index].split(','); // d, o, h, l, c, v
+            allData.push({
+              time: +(element[0] + '000'),
+              open: + parseFloat(element[1]),
+              high: +parseFloat(element[2]),
+              low: +parseFloat(element[3]),
+              close: +parseFloat(element[4])
             });
           }
-          resolve();
+          console.log(allData[0])
+          resolve(allData);
         },
         (error) => {
           console.log(error);
@@ -43,8 +44,9 @@ export class UtilsService extends CandleAbstract {
         }
       );
     });
-  } */
+  }
 
+  
 
    /**
    * Get data from Firebase
