@@ -20,13 +20,6 @@ import * as Candy from 'fusioncharts/themes/fusioncharts.theme.candy';
 
 FusionChartsModule.fcRoot(FusionCharts, Charts, FusionTheme, TimeSeries, Candy);
 const firebaseConfig = {
-  apiKey: 'AIzaSyAn1Jn7J-vumyC-XL1LY7AJEq7R_oqUGdc',
-  authDomain: 'real-time-trading-bot.firebaseapp.com',
-  databaseURL: 'https://real-time-trading-bot.firebaseio.com',
-  projectId: 'real-time-trading-bot',
-  storageBucket: 'real-time-trading-bot.appspot.com',
-  messagingSenderId: '711877653368',
-  appId: '1:711877653368:web:5c5e1ebab700ab23624e8d',
 };
 
 @NgModule({
